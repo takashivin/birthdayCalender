@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <main class="wrapper">
+        <!-- Birthday Notification Banner -->
+        <div id="notification" class="notification hidden">
+            <div class="notification-content">
+                <span class="notification-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                </span>
+                <span id="notification-text"></span>
+            </div>
+            <button id="close-notif" class="icon-btn close-notif-btn" aria-label="Tutup">&times;</button>
+        </div>
+
+        <!-- Calendar Card -->
+        <div class="calendar-card">
+            <!-- User Bar -->
+            <div class="user-bar">
+                <!-- Guest View (not logged in) -->
+                <div id="guest-actions" class="guest-actions">
+                    <button id="login-btn" class="auth-link-btn">Masuk</button>
+                    <button id="register-btn" class="auth-link-btn primary">Daftar</button>
+                </div>
+
+                <!-- User View (logged in) -->
+                <div id="user-actions" class="user-actions hidden">
+                    <div class="user-info">
+                        <svg class="user-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <span id="user-email" class="user-email"></span>
+                        <span id="admin-badge" class="admin-badge hidden">Admin</span>
+                    </div>
+                    <button id="logout-btn" class="logout-btn">Keluar</button>
+                </div>
+            </div>
+
+            <!-- Calendar Header -->
+            <div class="calendar-header">
+                <button id="prev-btn" class="nav-btn" aria-label="Bulan sebelumnya">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <h2 id="month-label" class="month-label"></h2>
+                <button id="next-btn" class="nav-btn" aria-label="Bulan berikutnya">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Weekday Labels -->
+            <div class="weekdays">
+                <div>Min</div>
+                <div>Sen</div>
+                <div>Sel</div>
+                <div>Rab</div>
+                <div>Kam</div>
+                <div>Jum</div>
+                <div>Sab</div>
+            </div>
+
+            <!-- Days Grid -->
+            <div id="days-grid" class="days-grid"></div>
+
+            <!-- Legend (admin only) -->
+            <div id="legend" class="legend hidden">
+                <div class="legend-item">
+                    <span class="birthday-dot"></span>
+                    <span>Disetujui</span>
+                </div>
+                <div class="legend-item">
+                    <span class="birthday-dot pending"></span>
+                    <span>Menunggu</span>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <button id="theme-btn" class="tool-btn" aria-label="Ganti tema" title="Ganti tema">
+                    <span id="theme-icon"></span>
+                </button>
+                <button id="admin-btn" class="tool-btn admin-tool-btn hidden" aria-label="Panel admin" title="Panel admin">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span id="pending-count" class="pending-count hidden">0</span>
+                </button>
+                <button id="add-btn" class="tool-btn add-btn hidden" aria-label="Tambah ulang tahun" title="Tambah ulang tahun">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================== -->
+    <!-- AUTH MODAL                      -->
+    <!-- ============================== -->
+    <div id="auth-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed">
+            <div class="modal-header">
+                <h3 id="auth-modal-title">Masuk</h3>
+                <button class="icon-btn auth-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="auth-form" class="modal-form">
+                    <div class="form-group">
+                        <label for="auth-email">Email</label>
+                        <input type="email" id="auth-email" placeholder="email@contoh.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-password">Password</label>
+                        <input type="password" id="auth-password" placeholder="Minimal 6 karakter" required minlength="6" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="submit-btn" id="auth-submit-btn">Masuk</button>
+                </form>
+                <p id="auth-error" class="auth-error hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- ADD BIRTHDAY MODAL             -->
+    <!-- ============================== -->
+    <div id="add-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed">
+            <div class="modal-header">
+                <h3>Tambah Ulang Tahun</h3>
+                <button class="icon-btn modal-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="birthday-form" class="modal-form">
+                    <div class="form-group">
+                        <label for="input-name">Nama</label>
+                        <input type="text" id="input-name" placeholder="Masukkan nama" required autocomplete="off">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="input-month">Bulan</label>
+                            <select id="input-month" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-day">Tanggal</label>
+                            <select id="input-day" required></select>
+                        </div>
+                    </div>
+                    <button type="submit" class="submit-btn">Simpan</button>
+                    <p class="form-hint">Ulang tahun akan muncul setelah disetujui admin.</p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- DETAIL MODAL                   -->
+    <!-- ============================== -->
+    <div id="detail-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed">
+            <div class="modal-header">
+                <h3 id="detail-title"></h3>
+                <button class="icon-btn detail-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body" id="detail-body">
+                <div id="detail-list" class="detail-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- ADMIN PANEL MODAL              -->
+    <!-- ============================== -->
+    <div id="admin-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed">
+            <div class="modal-header">
+                <h3>Persetujuan Admin</h3>
+                <button class="icon-btn admin-modal-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body" id="admin-body">
+                <div id="admin-list" class="admin-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

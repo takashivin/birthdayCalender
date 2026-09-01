@@ -1,0 +1,945 @@
+/* ============================================
+   CSS Variables — Light Theme (Default)
+   ============================================ */
+:root {
+    --bg-page: #f2f2f7;
+    --bg-card: #ffffff;
+    --bg-input: #f2f2f7;
+    --text-primary: #1c1c1e;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #aeaeb2;
+    --accent: #007aff;
+    --accent-hover: #005ec4;
+    --today-bg: #007aff;
+    --today-text: #ffffff;
+    --birthday-dot-color: #ff3b30;
+    --pending-dot-color: #ff9500;
+    --border: #d1d1d6;
+    --border-light: #e5e5ea;
+    --hover: rgba(0, 0, 0, 0.04);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06),
+                   0 8px 28px rgba(0, 0, 0, 0.04);
+    --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.18);
+    --overlay: rgba(0, 0, 0, 0.32);
+    --notif-bg: #fff8e1;
+    --notif-border: #ffe082;
+    --notif-text: #e65100;
+    --notif-shadow: 0 2px 12px rgba(255, 152, 0, 0.12);
+    --delete-bg: #ff3b30;
+    --delete-hover: #d32f2f;
+    --approve-bg: #34c759;
+    --approve-hover: #28a745;
+    --admin-bg: #5856d6;
+    --transition-speed: 0.25s;
+    --transition: var(--transition-speed) ease;
+}
+
+/* ============================================
+   CSS Variables — Dark Theme
+   ============================================ */
+[data-theme="dark"] {
+    --bg-page: #000000;
+    --bg-card: #1c1c1e;
+    --bg-input: #2c2c2e;
+    --text-primary: #f5f5f7;
+    --text-secondary: #98989d;
+    --text-tertiary: #636366;
+    --accent: #0a84ff;
+    --accent-hover: #409cff;
+    --today-bg: #0a84ff;
+    --today-text: #ffffff;
+    --birthday-dot-color: #ff453a;
+    --pending-dot-color: #ff9f0a;
+    --border: #38383a;
+    --border-light: #2c2c2e;
+    --hover: rgba(255, 255, 255, 0.06);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3),
+                   0 8px 28px rgba(0, 0, 0, 0.22);
+    --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.55);
+    --overlay: rgba(0, 0, 0, 0.6);
+    --notif-bg: #3e2723;
+    --notif-border: #5d4037;
+    --notif-text: #ffcc80;
+    --notif-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --delete-bg: #ff453a;
+    --delete-hover: #ff6961;
+    --approve-bg: #30d158;
+    --approve-hover: #34c759;
+    --admin-bg: #5e5ce6;
+}
+
+/* ============================================
+   Reset & Base
+   ============================================ */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: background-color var(--transition), color var(--transition);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ============================================
+   Layout Wrapper
+   ============================================ */
+.wrapper {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ============================================
+   Notification Banner
+   ============================================ */
+.notification {
+    background: var(--notif-bg);
+    border: 1px solid var(--notif-border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: var(--notif-shadow);
+    animation: slideDown 0.4s ease;
+    transition: background-color var(--transition), border-color var(--transition);
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    color: var(--notif-text);
+}
+
+#notification-text {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--notif-text);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.close-notif-btn {
+    color: var(--notif-text);
+    opacity: 0.6;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.close-notif-btn:hover {
+    opacity: 1;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   Calendar Card
+   ============================================ */
+.calendar-card {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    transition: background-color var(--transition), box-shadow var(--transition);
+}
+
+/* ============================================
+   User Bar
+   ============================================ */
+.user-bar {
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.guest-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.auth-link-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.auth-link-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.auth-link-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.auth-link-btn.primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.user-icon {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.user-email {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-badge {
+    background: var(--admin-bg);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--delete-bg);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+    padding: 4px 0;
+    transition: opacity 0.15s ease;
+}
+
+.logout-btn:hover {
+    opacity: 0.7;
+}
+
+/* ============================================
+   Calendar Header
+   ============================================ */
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.month-label {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    user-select: none;
+}
+
+.nav-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: var(--hover);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: background-color var(--transition), transform 0.15s ease;
+}
+
+.nav-btn:hover {
+    background: var(--border-light);
+}
+
+.nav-btn:active {
+    transform: scale(0.92);
+}
+
+/* ============================================
+   Weekday Labels
+   ============================================ */
+.weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 8px;
+}
+
+.weekdays div {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    user-select: none;
+}
+
+/* ============================================
+   Days Grid
+   ============================================ */
+.days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    height: 322px;
+    align-content: start;
+}
+
+.day-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.15s ease;
+    user-select: none;
+}
+
+.day-cell.empty {
+    cursor: default;
+}
+
+.day-cell:not(.empty):hover {
+    background: var(--hover);
+}
+
+.day-cell:not(.empty):active {
+    background: var(--border-light);
+}
+
+.day-number {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color var(--transition), color var(--transition);
+}
+
+.day-number.today {
+    background: var(--today-bg);
+    color: var(--today-text);
+    font-weight: 700;
+}
+
+.dot-container {
+    display: flex;
+    gap: 3px;
+    margin-top: 1px;
+    height: 5px;
+}
+
+.birthday-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--birthday-dot-color);
+    flex-shrink: 0;
+}
+
+.birthday-dot.pending {
+    background: var(--pending-dot-color);
+}
+
+/* ============================================
+   Legend (admin only)
+   ============================================ */
+.legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 12px;
+    padding-top: 10px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+/* ============================================
+   Toolbar
+   ============================================ */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.tool-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background-color var(--transition), transform 0.15s ease;
+    background: var(--hover);
+    color: var(--text-primary);
+    position: relative;
+}
+
+.tool-btn:hover {
+    background: var(--border-light);
+}
+
+.tool-btn:active {
+    transform: scale(0.9);
+}
+
+.tool-btn.add-btn {
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.tool-btn.add-btn:hover {
+    background: var(--accent-hover);
+}
+
+.pending-count {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--delete-bg);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+/* ============================================
+   Icon Button (generic)
+   ============================================ */
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: inherit;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s ease;
+}
+
+/* ============================================
+   Modal Overlay
+   ============================================ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ============================================
+   Modal Card — Fixed Size
+   ============================================ */
+.modal-fixed {
+    background: var(--bg-card);
+    border-radius: 20px;
+    width: 360px;
+    height: 420px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-modal);
+    animation: modalSlideUp 0.3s ease;
+    transition: background-color var(--transition);
+    overflow: hidden;
+}
+
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 24px 0 24px;
+    flex-shrink: 0;
+}
+
+.modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px 24px 24px;
+    min-height: 0;
+}
+
+.modal-header .icon-btn {
+    color: var(--text-secondary);
+}
+
+.modal-header .icon-btn:hover {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   Form
+   ============================================ */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.form-group input,
+.form-group select {
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--transition), background-color var(--transition), color var(--transition);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.form-group select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 36px;
+    cursor: pointer;
+}
+
+[data-theme="dark"] .form-group select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2398989d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--accent);
+}
+
+.form-group input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-hint {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+    text-align: center;
+    margin-top: 0;
+}
+
+.submit-btn {
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color var(--transition), transform 0.15s ease, opacity var(--transition);
+    margin-top: 4px;
+}
+
+.submit-btn:hover {
+    background: var(--accent-hover);
+}
+
+.submit-btn:active {
+    transform: scale(0.98);
+}
+
+.submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   Auth Error
+   ============================================ */
+.auth-error {
+    text-align: center;
+    color: var(--delete-bg);
+    font-size: 0.84rem;
+    margin-top: 14px;
+    line-height: 1.4;
+}
+
+.auth-error.info {
+    color: var(--pending-dot-color);
+}
+
+/* ============================================
+   Detail List
+   ============================================ */
+.detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border-radius: 12px;
+    transition: background-color var(--transition);
+    gap: 10px;
+}
+
+.detail-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.status-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    color: #fff;
+}
+
+.status-badge.approved {
+    background: var(--approve-bg);
+}
+
+.status-badge.pending-status {
+    background: var(--pending-dot-color);
+}
+
+.delete-btn {
+    background: var(--delete-bg);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color var(--transition), transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.delete-btn:hover {
+    background: var(--delete-hover);
+}
+
+.delete-btn:active {
+    transform: scale(0.95);
+}
+
+/* ============================================
+   Add More Button
+   ============================================ */
+.add-more-btn {
+    width: 100%;
+    padding: 11px;
+    background: none;
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color var(--transition), border-color var(--transition);
+    margin-top: 4px;
+}
+
+.add-more-btn:hover {
+    background: var(--hover);
+    border-color: var(--accent);
+}
+
+/* ============================================
+   Admin Panel
+   ============================================ */
+.admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    background: var(--bg-input);
+    border-radius: 12px;
+    gap: 12px;
+    transition: background-color var(--transition);
+}
+
+.admin-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.admin-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.admin-item-date {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.admin-item-email {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.admin-item-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.approve-btn,
+.reject-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition), transform 0.15s ease;
+}
+
+.approve-btn {
+    background: var(--approve-bg);
+}
+
+.approve-btn:hover {
+    background: var(--approve-hover);
+}
+
+.reject-btn {
+    background: var(--delete-bg);
+}
+
+.reject-btn:hover {
+    background: var(--delete-hover);
+}
+
+.approve-btn:active,
+.reject-btn:active {
+    transform: scale(0.9);
+}
+
+.admin-empty,
+.detail-empty {
+    text-align: center;
+    padding: 24px 16px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 440px) {
+    body {
+        padding: 12px;
+    }
+
+    .wrapper {
+        max-width: 100%;
+    }
+
+    .calendar-card {
+        padding: 20px 16px;
+        border-radius: 16px;
+    }
+
+    .day-cell {
+        height: 46px;
+    }
+
+    .days-grid {
+        height: 286px;
+    }
+
+    .day-number {
+        width: 30px;
+        height: 30px;
+        font-size: 0.84rem;
+    }
+
+    .month-label {
+        font-size: 1.12rem;
+    }
+
+    .notification {
+        border-radius: 14px;
+        padding: 12px 14px;
+    }
+
+    .modal-fixed {
+        width: calc(100vw - 40px);
+        max-width: 360px;
+        height: 420px;
+        border-radius: 16px;
+    }
+
+    .user-email {
+        max-width: 130px;
+    }
+}
