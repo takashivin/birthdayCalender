@@ -11,20 +11,6 @@
 </head>
 <body>
 
-    <!-- Birthday Notification Banner (Floating outside wrapper so filter:blur doesn't affect fixed positioning) -->
-    <div id="notification" class="notification hidden">
-        <div class="notification-content">
-            <span class="notification-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-            </span>
-            <span id="notification-text"></span>
-        </div>
-        <button id="close-notif" class="icon-btn close-notif-btn" aria-label="Tutup">&times;</button>
-    </div>
-
     <main class="wrapper">
         <!-- Calendar Card -->
         <div class="calendar-card">
@@ -95,6 +81,13 @@
             <div class="toolbar">
                 <button id="theme-btn" class="tool-btn" aria-label="Ganti tema" title="Ganti tema">
                     <span id="theme-icon"></span>
+                </button>
+                <button id="notif-btn" class="tool-btn" aria-label="Notifikasi" title="Notifikasi">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    <span id="notif-badge" class="pending-count hidden">0</span>
                 </button>
                 <button id="admin-btn" class="tool-btn admin-tool-btn hidden" aria-label="Panel admin" title="Panel admin">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -227,6 +220,42 @@
             </div>
             <div class="modal-body" id="admin-body">
                 <div id="admin-list" class="admin-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- NOTIFICATION CENTER MODAL       -->
+    <!-- ============================== -->
+    <div id="notif-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed notif-card-modal">
+            <div class="modal-header notif-header">
+                <div>
+                    <h3>Notifikasi</h3>
+                    <p class="modal-subtitle">Pemberitahuan & pengingat</p>
+                </div>
+                <button class="icon-btn notif-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <!-- Tabs -->
+            <div class="notif-tabs">
+                <button type="button" class="notif-tab-btn active" data-tab="today" id="tab-btn-today">
+                    Ulang Tahun Hari Ini
+                    <span id="tab-today-badge" class="tab-badge hidden">0</span>
+                </button>
+                <button type="button" class="notif-tab-btn" data-tab="status" id="tab-btn-status">
+                    Status Pengajuan
+                    <span id="tab-status-badge" class="tab-badge hidden">0</span>
+                </button>
+            </div>
+            <div class="modal-body notif-modal-body">
+                <!-- Tab Pane 1: Today Birthdays -->
+                <div id="notif-pane-today" class="notif-pane active">
+                    <div id="notif-today-list" class="notif-list"></div>
+                </div>
+                <!-- Tab Pane 2: Status Pengajuan -->
+                <div id="notif-pane-status" class="notif-pane hidden">
+                    <div id="notif-status-list" class="notif-list"></div>
+                </div>
             </div>
         </div>
     </div>

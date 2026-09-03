@@ -698,14 +698,16 @@ body {
     height: 420px;
 }
 
-/* Riwayat request ditinggikan agar lebih lega */
-#history-modal .modal-fixed {
+/* Riwayat request & Notifikasi ditinggikan agar lebih lega */
+#history-modal .modal-fixed,
+#notif-modal .modal-fixed {
     height: 500px;
     max-height: 88vh;
 }
 
 #admin-modal .modal-body,
-#history-modal .modal-body {
+#history-modal .modal-body,
+#notif-modal .modal-body {
     flex: 1;
     overflow-y: auto;
 }
@@ -1374,6 +1376,12 @@ input[type="number"] {
     border: 1px solid rgba(255, 149, 0, 0.25);
 }
 
+.status-pill.rejected {
+    background: rgba(255, 59, 48, 0.12);
+    color: #ff3b30;
+    border: 1px solid rgba(255, 59, 48, 0.25);
+}
+
 .status-pill-dot {
     width: 6px;
     height: 6px;
@@ -1435,6 +1443,175 @@ input[type="number"] {
 }
 
 /* ============================================
+   Notification Center Modal & Tabs
+   ============================================ */
+.notif-header {
+    padding: 24px 24px 14px 24px;
+    background: var(--bg-card);
+    flex-shrink: 0;
+}
+
+.notif-header h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.notif-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 14px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+}
+
+.notif-tab-btn {
+    flex: 1;
+    padding: 9px 8px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.notif-tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.notif-tab-btn.active {
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+}
+
+.tab-badge {
+    background: #ff3b30;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    line-height: 1.2;
+}
+
+.notif-tab-btn.active .tab-badge {
+    background: #ffffff;
+    color: var(--accent);
+}
+
+.notif-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+}
+
+.notif-pane {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.notif-pane.active {
+    display: flex;
+    animation: historyCardFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Today Birthday Card in Modal */
+.today-bday-card {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-light);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: historyCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.today-bday-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(0, 122, 255, 0.12);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.today-bday-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.today-bday-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.today-bday-sub {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+/* Status Pengajuan Card in Notif Modal */
+.notif-status-card {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-light);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: historyCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.notif-status-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.notif-status-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.notif-status-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.notif-status-time {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+}
+
+/* ============================================
    Responsive
    ============================================ */
 @media (max-width: 440px) {
@@ -1457,11 +1634,6 @@ input[type="number"] {
 
     .month-label { font-size: 1.12rem; }
 
-    .notification {
-        border-radius: 14px;
-        padding: 12px 14px;
-    }
-
     .modal-fixed {
         width: calc(100vw - 40px);
         max-width: 360px;
@@ -1474,7 +1646,8 @@ input[type="number"] {
         height: 420px;
     }
 
-    #history-modal .modal-fixed {
+    #history-modal .modal-fixed,
+    #notif-modal .modal-fixed {
         height: 500px;
         max-height: 88vh;
     }

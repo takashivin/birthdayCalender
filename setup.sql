@@ -81,8 +81,42 @@ CREATE POLICY "Admin update" ON birthdays
     );
 
 
+-- 4. Tabel Reject (riwayat pengajuan yang ditolak)
+CREATE TABLE IF NOT EXISTS reject (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT NOT NULL,
+    day SMALLINT NOT NULL CHECK (day >= 1 AND day <= 31),
+    month SMALLINT NOT NULL CHECK (month >= 1 AND month <= 12),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    user_email TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE reject ENABLE ROW LEVEL SECURITY;
+
+-- User bisa lihat riwayat penolakan miliknya sendiri, admin bisa lihat semua
+CREATE POLICY "Auth read reject" ON reject
+    FOR SELECT TO authenticated USING (
+        user_id = auth.uid()
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
+
+-- Admin bisa memasukkan data penolakan ke tabel reject
+CREATE POLICY "Admin insert reject" ON reject
+    FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
+
+-- User bisa menghapus riwayat penolakan miliknya, admin bisa hapus semua
+CREATE POLICY "Delete reject" ON reject
+    FOR DELETE TO authenticated USING (
+        user_id = auth.uid()
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
+
+
 -- ============================================
--- 4. Jadikan admin (jalankan SETELAH daftar akun)
+-- 5. Jadikan admin (jalankan SETELAH daftar akun)
 -- Ganti email di bawah dengan email admin kamu
 -- ============================================
 -- UPDATE profiles SET is_admin = true WHERE email = 'email-admin-kamu@contoh.com';

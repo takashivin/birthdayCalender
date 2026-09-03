@@ -178,6 +178,19 @@ const monthPickerText     = document.getElementById("month-picker-text");
 const monthPickerModal    = document.getElementById("month-picker-modal");
 const monthGrid           = document.getElementById("month-grid");
 
+// Notification Center
+const notifBtn            = document.getElementById("notif-btn");
+const notifBadge          = document.getElementById("notif-badge");
+const notifModal          = document.getElementById("notif-modal");
+const tabBtnToday         = document.getElementById("tab-btn-today");
+const tabBtnStatus        = document.getElementById("tab-btn-status");
+const tabTodayBadge       = document.getElementById("tab-today-badge");
+const tabStatusBadge      = document.getElementById("tab-status-badge");
+const notifPaneToday      = document.getElementById("notif-pane-today");
+const notifPaneStatus     = document.getElementById("notif-pane-status");
+const notifTodayList      = document.getElementById("notif-today-list");
+const notifStatusList     = document.getElementById("notif-status-list");
+
 /* ============================================
    THEME
    ============================================ */
@@ -563,7 +576,7 @@ async function fetchBirthdays() {
         allBirthdays = []; approvedBirthdays = []; pendingBirthdays = [];
     }
     renderCalendar();
-    checkTodayBirthdays();
+    updateNotifBadge();
     updateAdminBadge();
     updateUserPendingBadge();
 }
@@ -582,6 +595,7 @@ async function saveBirthday(name, day, month) {
         renderCalendar();
         updateAdminBadge();
         updateUserPendingBadge();
+        updateNotifBadge();
         return true;
     } catch (err) {
         console.error("Save error:", err);
@@ -599,7 +613,7 @@ async function deleteBirthday(id, silent = false) {
         pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
         if (!silent) {
             renderCalendar();
-            checkTodayBirthdays();
+            updateNotifBadge();
             updateAdminBadge();
             updateUserPendingBadge();
         }
@@ -620,13 +634,48 @@ async function approveBirthday(id) {
         approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
         pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
         renderCalendar();
-        checkTodayBirthdays();
+        updateNotifBadge();
         updateAdminBadge();
         updateUserPendingBadge();
         return true;
     } catch (err) {
         console.error("Approve error:", err);
         alert("Gagal menyetujui.");
+        return false;
+    }
+}
+
+async function rejectBirthday(b) {
+    try {
+        // 1. Simpan ke tabel reject (jika tabel reject ada)
+        try {
+            await db.from("reject").insert([{
+                name: b.name,
+                day: b.day,
+                month: b.month,
+                user_id: b.user_id,
+                user_email: b.user_email
+            }]);
+        } catch (e) {
+            console.warn("Reject table insert warning:", e);
+        }
+
+        // 2. Hapus dari tabel birthdays
+        const { error } = await db.from("birthdays").delete().eq("id", b.id);
+        if (error) throw error;
+
+        allBirthdays      = allBirthdays.filter(x => x.id !== b.id);
+        approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
+        pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
+
+        renderCalendar();
+        updateAdminBadge();
+        updateUserPendingBadge();
+        updateNotifBadge();
+        return true;
+    } catch (err) {
+        console.error("Reject error:", err);
+        alert("Gagal menolak pengajuan.");
         return false;
     }
 }
@@ -654,26 +703,217 @@ function updateUserPendingBadge() {
 }
 
 /* ============================================
-   NOTIFICATION
+   NOTIFICATION CENTER & TODAY'S BIRTHDAYS
    ============================================ */
-function checkTodayBirthdays() {
-    const t = new Date();
-    const todayBdays = approvedBirthdays.filter(b => b.day === t.getDate() && b.month === t.getMonth() + 1);
+let todayBirthdaysList = [];
+let userStatusUpdates = [];
 
-    if (todayBdays.length > 0) {
-        const names = todayBdays.map(b => b.name);
-        let text;
-        if (names.length === 1) text = "Selamat Ulang Tahun, " + names[0] + "!";
-        else if (names.length === 2) text = "Selamat Ulang Tahun, " + names[0] + " & " + names[1] + "!";
-        else {
-            const last = names[names.length - 1];
-            text = "Selamat Ulang Tahun, " + names.slice(0, -1).join(", ") + " & " + last + "!";
+function getTodayBirthdays() {
+    const t = new Date();
+    const curDate = t.getDate();
+    const curMonth = t.getMonth() + 1;
+    return approvedBirthdays.filter(b => b.day === curDate && b.month === curMonth);
+}
+
+async function updateNotifBadge() {
+    todayBirthdaysList = getTodayBirthdays();
+    const todayCount = todayBirthdaysList.length;
+
+    if (tabTodayBadge) {
+        if (todayCount > 0) {
+            tabTodayBadge.textContent = todayCount;
+            tabTodayBadge.classList.remove("hidden");
+        } else {
+            tabTodayBadge.classList.add("hidden");
         }
-        notificationText.textContent = text;
-        notification.classList.remove("hidden");
-    } else {
-        notification.classList.add("hidden");
     }
+
+    let unreadStatusCount = 0;
+    if (currentUser) {
+        try {
+            const [bRes, rRes] = await Promise.all([
+                db.from("birthdays").select("*").eq("user_id", currentUser.id),
+                db.from("reject").select("*").eq("user_id", currentUser.id)
+            ]);
+            const bData = (bRes && bRes.data) ? bRes.data : [];
+            const rData = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
+            userStatusUpdates = [...bData, ...rData].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+            const lastSeenTime = parseInt(localStorage.getItem("last_seen_status_time_" + currentUser.id)) || 0;
+            unreadStatusCount = userStatusUpdates.filter(item => {
+                const itemTime = new Date(item.created_at || 0).getTime();
+                return itemTime > lastSeenTime && (item.status === "approved" || item.status === "rejected");
+            }).length;
+        } catch (e) {
+            console.error("Error updating status updates in badge:", e);
+        }
+    } else {
+        userStatusUpdates = [];
+    }
+
+    if (tabStatusBadge) {
+        if (unreadStatusCount > 0) {
+            tabStatusBadge.textContent = unreadStatusCount;
+            tabStatusBadge.classList.remove("hidden");
+        } else {
+            tabStatusBadge.classList.add("hidden");
+        }
+    }
+
+    const totalBadge = todayCount + unreadStatusCount;
+    if (notifBadge) {
+        if (totalBadge > 0) {
+            notifBadge.textContent = totalBadge;
+            notifBadge.classList.remove("hidden");
+        } else {
+            notifBadge.classList.add("hidden");
+        }
+    }
+}
+
+function openNotifModal(forcedTab) {
+    let targetTab = forcedTab;
+    if (!targetTab) {
+        // Jika ada status pengajuan baru/belum dilihat -> buka tab status
+        const lastSeenTime = currentUser ? (parseInt(localStorage.getItem("last_seen_status_time_" + currentUser.id)) || 0) : 0;
+        const hasNewStatus = userStatusUpdates.some(item => {
+            const itemTime = new Date(item.created_at || 0).getTime();
+            return itemTime > lastSeenTime && (item.status === "approved" || item.status === "rejected");
+        });
+
+        if (hasNewStatus) {
+            targetTab = "status";
+        } else if (todayBirthdaysList.length > 0) {
+            targetTab = "today";
+        } else {
+            targetTab = "today";
+        }
+    }
+
+    renderNotifPanes();
+    switchNotifTab(targetTab);
+    openModal(notifModal);
+
+    // Tandai status telah dilihat jika membuka modal
+    if (currentUser) {
+        localStorage.setItem("last_seen_status_time_" + currentUser.id, Date.now());
+        if (tabStatusBadge) tabStatusBadge.classList.add("hidden");
+        if (notifBadge) {
+            const todayCount = todayBirthdaysList.length;
+            if (todayCount > 0) {
+                notifBadge.textContent = todayCount;
+                notifBadge.classList.remove("hidden");
+            } else {
+                notifBadge.classList.add("hidden");
+            }
+        }
+    }
+}
+
+function closeNotifModal() {
+    closeModal(notifModal);
+}
+
+function switchNotifTab(tabName) {
+    if (tabName === "today") {
+        tabBtnToday.classList.add("active");
+        tabBtnStatus.classList.remove("active");
+        notifPaneToday.classList.add("active");
+        notifPaneToday.classList.remove("hidden");
+        notifPaneStatus.classList.remove("active");
+        notifPaneStatus.classList.add("hidden");
+    } else {
+        tabBtnStatus.classList.add("active");
+        tabBtnToday.classList.remove("active");
+        notifPaneStatus.classList.add("active");
+        notifPaneStatus.classList.remove("hidden");
+        notifPaneToday.classList.remove("active");
+        notifPaneToday.classList.add("hidden");
+    }
+}
+
+function renderNotifPanes() {
+    renderNotifTodayPane();
+    renderNotifStatusPane();
+}
+
+function renderNotifTodayPane() {
+    if (!notifTodayList) return;
+    notifTodayList.innerHTML = "";
+    todayBirthdaysList = getTodayBirthdays();
+
+    if (todayBirthdaysList.length === 0) {
+        notifTodayList.innerHTML = '<div class="detail-empty">Tidak ada yang berulang tahun hari ini.</div>';
+        return;
+    }
+
+    todayBirthdaysList.forEach(b => {
+        const card = document.createElement("div");
+        card.className = "today-bday-card";
+        card.innerHTML = `
+            <div class="today-bday-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+            </div>
+            <div class="today-bday-info">
+                <span class="today-bday-name">${b.name}</span>
+                <span class="today-bday-sub">Sedang berulang tahun hari ini!</span>
+            </div>
+        `;
+        notifTodayList.appendChild(card);
+    });
+}
+
+function renderNotifStatusPane() {
+    if (!notifStatusList) return;
+    notifStatusList.innerHTML = "";
+
+    if (!currentUser) {
+        notifStatusList.innerHTML = '<div class="detail-empty">Silakan masuk akun untuk melihat status pengajuan Anda.</div>';
+        return;
+    }
+
+    if (userStatusUpdates.length === 0) {
+        notifStatusList.innerHTML = '<div class="detail-empty">Belum ada riwayat pengajuan.</div>';
+        return;
+    }
+
+    userStatusUpdates.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "notif-status-card";
+
+        let statusText = "Menunggu";
+        let pillClass = "pending-status";
+        let descText = "Pengajuan Anda sedang menunggu persetujuan admin.";
+
+        if (item.status === "approved") {
+            statusText = "Disetujui";
+            pillClass = "approved";
+            descText = "Pengajuan Anda telah disetujui dan ditambahkan ke kalender.";
+        } else if (item.status === "rejected") {
+            statusText = "Ditolak";
+            pillClass = "rejected";
+            descText = "Pengajuan Anda ditolak oleh admin.";
+        }
+
+        const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+        card.innerHTML = `
+            <div class="notif-status-top">
+                <span class="notif-status-name">${item.name}</span>
+                <span class="status-pill ${pillClass}">
+                    <span class="status-pill-dot"></span>${statusText}
+                </span>
+            </div>
+            <div class="notif-status-desc">${descText}</div>
+            <div class="notif-status-time">Tanggal Lahir: ${item.day} ${MONTH_NAMES[item.month - 1]}${dateStr ? ' • ' + dateStr : ''}</div>
+        `;
+        notifStatusList.appendChild(card);
+    });
 }
 
 /* ============================================
@@ -846,7 +1086,7 @@ function openAdminModal() {
                     cancelText: "Batalkan",
                     type: "danger",
                     onOk: async () => {
-                        const ok = await deleteBirthday(b.id);
+                        const ok = await rejectBirthday(b);
                         if (ok) {
                             item.remove();
                             if (adminList.querySelectorAll(".admin-item").length === 0) {
@@ -884,15 +1124,14 @@ async function openHistoryModal() {
     openModal(historyModal);
 
     try {
-        const { data, error } = await db
-            .from("birthdays")
-            .select("*")
-            .eq("user_id", currentUser.id)
-            .order("created_at", { ascending: false });
+        const [bRes, rRes] = await Promise.all([
+            db.from("birthdays").select("*").eq("user_id", currentUser.id),
+            db.from("reject").select("*").eq("user_id", currentUser.id)
+        ]);
 
-        if (error) throw error;
-
-        const validItems = data || [];
+        const bItems = (bRes && bRes.data) ? bRes.data : [];
+        const rItems = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
+        const validItems = [...bItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
         historyList.innerHTML = "";
         if (validItems.length === 0) {
@@ -916,9 +1155,19 @@ async function openHistoryModal() {
             nameEl.textContent = b.name;
             topRow.appendChild(nameEl);
 
+            let pillClass = "pending-status";
+            let pillText = "Menunggu";
+            if (b.status === "approved") {
+                pillClass = "approved";
+                pillText = "Disetujui";
+            } else if (b.status === "rejected") {
+                pillClass = "rejected";
+                pillText = "Ditolak";
+            }
+
             const pill = document.createElement("span");
-            pill.className = `status-pill ${b.status === "approved" ? "approved" : "pending-status"}`;
-            pill.innerHTML = `<span class="status-pill-dot"></span>${b.status === "approved" ? "Disetujui" : "Menunggu"}`;
+            pill.className = `status-pill ${pillClass}`;
+            pill.innerHTML = `<span class="status-pill-dot"></span>${pillText}`;
             topRow.appendChild(pill);
             card.appendChild(topRow);
 
@@ -953,7 +1202,8 @@ async function openHistoryModal() {
             // Manual delete button
             const delBtn = document.createElement("button");
             delBtn.className = "history-del-btn";
-            delBtn.title = "Hapus Ulang Tahun";
+            const isRejected = b.status === "rejected";
+            delBtn.title = isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun";
             delBtn.innerHTML = `
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -963,12 +1213,28 @@ async function openHistoryModal() {
             `;
             delBtn.addEventListener("click", () => {
                 showConfirmDialog({
-                    title: "Hapus Ulang Tahun",
-                    message: `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`,
+                    title: isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun",
+                    message: isRejected
+                        ? `Hapus riwayat pengajuan ditolak "${b.name}"?`
+                        : `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`,
                     okText: "Hapus",
                     cancelText: "Batalkan",
+                    type: "danger",
                     onOk: async () => {
-                        const ok = await deleteBirthday(b.id);
+                        let ok = false;
+                        if (b.isRejectTable) {
+                            try {
+                                const { error } = await db.from("reject").delete().eq("id", b.id);
+                                if (error) throw error;
+                                ok = true;
+                            } catch (e) {
+                                console.error("Error deleting from reject table:", e);
+                                alert("Gagal menghapus riwayat.");
+                            }
+                        } else {
+                            ok = await deleteBirthday(b.id);
+                        }
+
                         if (ok) {
                             card.remove();
                             if (historyList.querySelectorAll(".history-card").length === 0) {
@@ -978,6 +1244,7 @@ async function openHistoryModal() {
                                 historyList.appendChild(empty);
                             }
                             updateUserPendingBadge();
+                            updateNotifBadge();
                         }
                     }
                 });
@@ -1133,8 +1400,13 @@ function setupListeners() {
         if (e.target === confirmModal) document.getElementById("confirm-cancel-btn").click();
     });
 
-    // Notification close
-    document.getElementById("close-notif").addEventListener("click", () => notification.classList.add("hidden"));
+    // Notification Center Modal
+    if (notifBtn) notifBtn.addEventListener("click", () => openNotifModal());
+    const notifCloseBtn = document.querySelector(".notif-close-btn");
+    if (notifCloseBtn) notifCloseBtn.addEventListener("click", closeNotifModal);
+    if (notifModal) notifModal.addEventListener("click", e => { if (e.target === notifModal) closeNotifModal(); });
+    if (tabBtnToday) tabBtnToday.addEventListener("click", () => switchNotifTab("today"));
+    if (tabBtnStatus) tabBtnStatus.addEventListener("click", () => switchNotifTab("status"));
 
     // Birthday form
     birthdayForm.addEventListener("submit", async e => {
@@ -1150,8 +1422,9 @@ function setupListeners() {
         btn.disabled = false; btn.textContent = "Simpan";
         if (ok) {
             closeAddModal();
-            notificationText.textContent = "Pengajuan berhasil dikirim! Menunggu persetujuan admin.";
-            notification.classList.remove("hidden");
+            updateUserPendingBadge();
+            updateNotifBadge();
+            openNotifModal("status");
         }
     });
 
@@ -1166,6 +1439,8 @@ function setupListeners() {
                 if (cancelBtn) cancelBtn.click();
             } else if (monthPickerModal && !monthPickerModal.classList.contains("hidden")) {
                 closeMonthPicker();
+            } else if (notifModal && !notifModal.classList.contains("hidden")) {
+                closeNotifModal();
             } else if (historyModal && !historyModal.classList.contains("hidden")) {
                 closeHistoryModal();
             } else if (detailModal && !detailModal.classList.contains("hidden")) {
