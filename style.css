@@ -76,25 +76,44 @@
 
 button, input, select, textarea, a {
     -webkit-tap-highlight-color: transparent !important;
-    outline: none !important;
 }
 
-button:focus,
-button:focus-visible,
-.tool-btn:focus,
-.tool-btn:focus-visible,
-.nav-btn:focus,
-.nav-btn:focus-visible,
-.icon-btn:focus,
-.icon-btn:focus-visible,
-.day-cell:focus,
-.day-cell:focus-visible,
-.auth-link-btn:focus,
-.auth-link-btn:focus-visible,
-.submit-btn:focus,
-.submit-btn:focus-visible {
+/* Remove outline on mouse / pointer click */
+:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+.tool-btn:focus:not(:focus-visible),
+.nav-btn:focus:not(:focus-visible),
+.icon-btn:focus:not(:focus-visible),
+.day-cell:focus:not(:focus-visible),
+.auth-link-btn:focus:not(:focus-visible),
+.submit-btn:focus:not(:focus-visible),
+.notif-tab-btn:focus:not(:focus-visible) {
     outline: none !important;
     box-shadow: none;
+}
+
+/* Keyboard accessibility (Tab navigation) - matches Tambah (+) button blue */
+:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+.tool-btn:focus-visible,
+.nav-btn:focus-visible,
+.icon-btn:focus-visible,
+.day-cell:focus-visible,
+.auth-link-btn:focus-visible,
+.submit-btn:focus-visible,
+.notif-tab-btn:focus-visible,
+.confirm-cancel-btn:focus-visible,
+.confirm-ok-btn:focus-visible {
+    outline: 3px solid var(--accent) !important;
+    outline-offset: 2px !important;
 }
 
 /* Hide reCAPTCHA v3 badge */
