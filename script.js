@@ -720,40 +720,75 @@ function getTodayBirthdays() {
     return approvedBirthdays.filter(b => b.day === curDate && b.month === curMonth);
 }
 
-async function updateNotifBadge() {
-    todayBirthdaysList = getTodayBirthdays();
-    const todayCount = todayBirthdaysList.length;
+function getSeenNotifKeys() {
+    try {
+        return JSON.parse(localStorage.getItem("birthday_cal_seen_notifs") || "[]");
+    } catch (e) {
+        return [];
+    }
+}
+
+function addSeenNotifKeys(keys) {
+    try {
+        const current = getSeenNotifKeys();
+        const set = new Set([...current, ...keys]);
+        const arr = Array.from(set).slice(-300);
+        localStorage.setItem("birthday_cal_seen_notifs", JSON.stringify(arr));
+    } catch (e) {
+        console.error("Error saving seen notif keys:", e);
+    }
+}
+
+function getUnreadNotifCounts() {
+    const seenKeys = getSeenNotifKeys();
+    const todayStr = new Date().toDateString();
+
+    // 1. Unread Today Birthdays
+    const unreadTodayItems = todayBirthdaysList.filter(b => 
+        !seenKeys.includes("today_" + todayStr + "_" + b.id)
+    );
+    const unreadTodayCount = unreadTodayItems.length;
+
+    // 2. Unread Status Updates (pending, approved, or rejected)
+    let unreadStatusCount = 0;
+    if (currentUser) {
+        const unreadStatusItems = userStatusUpdates.filter(item => 
+            !seenKeys.includes("status_" + item.id + "_" + item.status)
+        );
+        unreadStatusCount = unreadStatusItems.length;
+    }
+
+    const total = unreadTodayCount + unreadStatusCount;
+    return { unreadTodayCount, unreadStatusCount, total };
+}
+
+function markTodayBdayAsSeen() {
+    const todayStr = new Date().toDateString();
+    const keysToMark = todayBirthdaysList.map(b => "today_" + todayStr + "_" + b.id);
+    if (keysToMark.length > 0) {
+        addSeenNotifKeys(keysToMark);
+    }
+    updateNotifBadgeDisplay();
+}
+
+function markStatusAsSeen() {
+    if (currentUser && userStatusUpdates.length > 0) {
+        const keysToMark = userStatusUpdates.map(item => "status_" + item.id + "_" + item.status);
+        addSeenNotifKeys(keysToMark);
+        updateNotifBadgeDisplay();
+    }
+}
+
+function updateNotifBadgeDisplay() {
+    const { unreadTodayCount, unreadStatusCount, total } = getUnreadNotifCounts();
 
     if (tabTodayBadge) {
-        if (todayCount > 0) {
-            tabTodayBadge.textContent = todayCount;
+        if (unreadTodayCount > 0) {
+            tabTodayBadge.textContent = unreadTodayCount;
             tabTodayBadge.classList.remove("hidden");
         } else {
             tabTodayBadge.classList.add("hidden");
         }
-    }
-
-    let unreadStatusCount = 0;
-    if (currentUser) {
-        try {
-            const [bRes, rRes] = await Promise.all([
-                db.from("birthdays").select("*").eq("user_id", currentUser.id),
-                db.from("reject").select("*").eq("user_id", currentUser.id)
-            ]);
-            const bData = (bRes && bRes.data) ? bRes.data : [];
-            const rData = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
-            userStatusUpdates = [...bData, ...rData].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-            const lastSeenTime = parseInt(localStorage.getItem("last_seen_status_time_" + currentUser.id)) || 0;
-            unreadStatusCount = userStatusUpdates.filter(item => {
-                const itemTime = new Date(item.created_at || 0).getTime();
-                return itemTime > lastSeenTime && (item.status === "approved" || item.status === "rejected");
-            }).length;
-        } catch (e) {
-            console.error("Error updating status updates in badge:", e);
-        }
-    } else {
-        userStatusUpdates = [];
     }
 
     if (tabStatusBadge) {
@@ -765,10 +800,9 @@ async function updateNotifBadge() {
         }
     }
 
-    const totalBadge = todayCount + unreadStatusCount;
     if (notifBadge) {
-        if (totalBadge > 0) {
-            notifBadge.textContent = totalBadge;
+        if (total > 0) {
+            notifBadge.textContent = total;
             notifBadge.classList.remove("hidden");
         } else {
             notifBadge.classList.add("hidden");
@@ -776,18 +810,37 @@ async function updateNotifBadge() {
     }
 }
 
+async function updateNotifBadge() {
+    todayBirthdaysList = getTodayBirthdays();
+
+    if (currentUser) {
+        try {
+            const [bRes, rRes] = await Promise.all([
+                db.from("birthdays").select("*").eq("user_id", currentUser.id),
+                db.from("reject").select("*").eq("user_id", currentUser.id)
+            ]);
+            const bData = (bRes && bRes.data) ? bRes.data : [];
+            const rData = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
+            userStatusUpdates = [...bData, ...rData].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        } catch (e) {
+            console.error("Error updating status updates in badge:", e);
+        }
+    } else {
+        userStatusUpdates = [];
+    }
+
+    updateNotifBadgeDisplay();
+}
+
 function openNotifModal(forcedTab) {
     let targetTab = forcedTab;
-    if (!targetTab) {
-        // Jika ada status pengajuan baru/belum dilihat -> buka tab status
-        const lastSeenTime = currentUser ? (parseInt(localStorage.getItem("last_seen_status_time_" + currentUser.id)) || 0) : 0;
-        const hasNewStatus = userStatusUpdates.some(item => {
-            const itemTime = new Date(item.created_at || 0).getTime();
-            return itemTime > lastSeenTime && (item.status === "approved" || item.status === "rejected");
-        });
+    const { unreadTodayCount, unreadStatusCount } = getUnreadNotifCounts();
 
-        if (hasNewStatus) {
+    if (!targetTab) {
+        if (unreadStatusCount > 0 && unreadTodayCount === 0) {
             targetTab = "status";
+        } else if (unreadTodayCount > 0) {
+            targetTab = "today";
         } else if (todayBirthdaysList.length > 0) {
             targetTab = "today";
         } else {
@@ -798,21 +851,6 @@ function openNotifModal(forcedTab) {
     renderNotifPanes();
     switchNotifTab(targetTab);
     openModal(notifModal);
-
-    // Tandai status telah dilihat jika membuka modal
-    if (currentUser) {
-        localStorage.setItem("last_seen_status_time_" + currentUser.id, Date.now());
-        if (tabStatusBadge) tabStatusBadge.classList.add("hidden");
-        if (notifBadge) {
-            const todayCount = todayBirthdaysList.length;
-            if (todayCount > 0) {
-                notifBadge.textContent = todayCount;
-                notifBadge.classList.remove("hidden");
-            } else {
-                notifBadge.classList.add("hidden");
-            }
-        }
-    }
 }
 
 function closeNotifModal() {
@@ -827,6 +865,7 @@ function switchNotifTab(tabName) {
         notifPaneToday.classList.remove("hidden");
         notifPaneStatus.classList.remove("active");
         notifPaneStatus.classList.add("hidden");
+        markTodayBdayAsSeen();
     } else {
         tabBtnStatus.classList.add("active");
         tabBtnToday.classList.remove("active");
@@ -834,6 +873,7 @@ function switchNotifTab(tabName) {
         notifPaneStatus.classList.remove("hidden");
         notifPaneToday.classList.remove("active");
         notifPaneToday.classList.add("hidden");
+        markStatusAsSeen();
     }
 }
 
@@ -1137,6 +1177,7 @@ async function openHistoryModal() {
         const bItems = (bRes && bRes.data) ? bRes.data : [];
         const rItems = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
         const validItems = [...bItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        markStatusAsSeen();
 
         historyList.innerHTML = "";
         if (validItems.length === 0) {
