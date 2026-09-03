@@ -241,7 +241,24 @@ body {
 .guest-actions {
     display: flex;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.guest-auth-buttons {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    flex-shrink: 0;
+}
+
+.guest-hint {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    line-height: 1.3;
+    opacity: 0.85;
+    flex: 1;
+    min-width: 140px;
 }
 
 .auth-link-btn {

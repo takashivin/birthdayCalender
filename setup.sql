@@ -61,9 +61,12 @@ CREATE POLICY "Auth read" ON birthdays
         OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
     );
 
--- User hanya bisa tambah atas nama sendiri
-CREATE POLICY "Insert own" ON birthdays
-    FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+-- User bisa tambah atas nama sendiri, admin bisa masukkan saat approve
+CREATE POLICY "Insert own or admin" ON birthdays
+    FOR INSERT TO authenticated WITH CHECK (
+        auth.uid() = user_id
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
 
 -- User bisa hapus milik sendiri, admin bisa hapus semua
 CREATE POLICY "Delete own or admin" ON birthdays
@@ -81,7 +84,39 @@ CREATE POLICY "Admin update" ON birthdays
     );
 
 
--- 4. Tabel Reject (riwayat pengajuan yang ditolak)
+-- 4. Tabel Pending (pengajuan yang menunggu persetujuan admin)
+CREATE TABLE IF NOT EXISTS pending (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT NOT NULL,
+    day SMALLINT NOT NULL CHECK (day >= 1 AND day <= 31),
+    month SMALLINT NOT NULL CHECK (month >= 1 AND month <= 12),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    user_email TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE pending ENABLE ROW LEVEL SECURITY;
+
+-- User bisa lihat pengajuan pending miliknya, admin bisa lihat semua pengajuan pending
+CREATE POLICY "Auth read pending" ON pending
+    FOR SELECT TO authenticated USING (
+        user_id = auth.uid()
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
+
+-- User yang login bisa mengajukan ulang tahun baru (insert ke tabel pending)
+CREATE POLICY "Insert own pending" ON pending
+    FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+-- User bisa membatalkan/menghapus pengajuan pending miliknya, admin bisa hapus saat approve/reject
+CREATE POLICY "Delete pending" ON pending
+    FOR DELETE TO authenticated USING (
+        user_id = auth.uid()
+        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
+    );
+
+
+-- 5. Tabel Reject (riwayat pengajuan yang ditolak)
 CREATE TABLE IF NOT EXISTS reject (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name TEXT NOT NULL,
@@ -115,8 +150,14 @@ CREATE POLICY "Delete reject" ON reject
     );
 
 
+-- (Opsional jika sebelumnya ada data pending di tabel birthdays)
+-- INSERT INTO pending (name, day, month, user_id, user_email, created_at)
+-- SELECT name, day, month, user_id, user_email, created_at FROM birthdays WHERE status = 'pending';
+-- DELETE FROM birthdays WHERE status = 'pending';
+
+
 -- ============================================
--- 5. Jadikan admin (jalankan SETELAH daftar akun)
+-- 6. Jadikan admin (jalankan SETELAH daftar akun)
 -- Ganti email di bawah dengan email admin kamu
 -- ============================================
 -- UPDATE profiles SET is_admin = true WHERE email = 'email-admin-kamu@contoh.com';

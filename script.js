@@ -562,19 +562,36 @@ function nextMonth() {
 }
 
 /* ============================================
-   BIRTHDAY CRUD
+   BIRTHDAY CRUD & PENDING SEPARATION
    ============================================ */
 async function fetchBirthdays() {
     try {
         const { data, error } = await db.from("birthdays").select("*");
         if (error) throw error;
         allBirthdays      = data || [];
-        approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
-        pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
+        approvedBirthdays = allBirthdays.filter(b => b.status === "approved" || !b.status);
     } catch (err) {
-        console.error("Fetch error:", err);
-        allBirthdays = []; approvedBirthdays = []; pendingBirthdays = [];
+        console.error("Fetch birthdays error:", err);
+        allBirthdays = []; approvedBirthdays = [];
     }
+
+    pendingBirthdays = [];
+    if (currentUser) {
+        try {
+            const { data: pData, error: pErr } = await db.from("pending").select("*");
+            if (!pErr && pData) {
+                pendingBirthdays = pData.map(b => ({ ...b, status: "pending", isPendingTable: true }));
+            }
+        } catch (e) {
+            console.warn("Fetch pending table warning:", e);
+        }
+    }
+    // Gabungkan jika masih ada data pending lama di tabel birthdays
+    const legacyPending = allBirthdays.filter(b => b.status === "pending");
+    if (legacyPending.length > 0) {
+        pendingBirthdays = [...pendingBirthdays, ...legacyPending];
+    }
+
     renderCalendar();
     updateNotifBadge();
     updateAdminBadge();
@@ -584,15 +601,28 @@ async function fetchBirthdays() {
 async function saveBirthday(name, day, month) {
     if (!currentUser) return false;
     try {
-        const { data, error } = await db.from("birthdays")
-            .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email, status: "pending" }])
+        let newRow = null;
+        // 1. Simpan ke tabel pending (terpisah dari birthdays yang sudah di-acc)
+        const { data, error } = await db.from("pending")
+            .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email }])
             .select();
-        if (error) throw error;
-        if (data && data.length > 0) {
-            allBirthdays.push(data[0]);
-            pendingBirthdays.push(data[0]);
-            userStatusUpdates = [data[0], ...userStatusUpdates.filter(x => x.id !== data[0].id)];
+
+        if (!error && data && data.length > 0) {
+            newRow = { ...data[0], status: "pending", isPendingTable: true };
+        } else {
+            // Fallback ke tabel birthdays jika tabel pending belum dibuat di Supabase
+            const { data: bData, error: bErr } = await db.from("birthdays")
+                .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email, status: "pending" }])
+                .select();
+            if (bErr) throw bErr;
+            if (bData && bData.length > 0) newRow = bData[0];
         }
+
+        if (newRow) {
+            pendingBirthdays.push(newRow);
+            userStatusUpdates = [newRow, ...userStatusUpdates.filter(x => x.id !== newRow.id)];
+        }
+
         renderCalendar();
         updateAdminBadge();
         updateUserPendingBadge();
@@ -600,18 +630,19 @@ async function saveBirthday(name, day, month) {
         return true;
     } catch (err) {
         console.error("Save error:", err);
-        alert("Gagal menyimpan. Pastikan tabel & RLS sudah di-setup.");
+        alert("Gagal menyimpan pengajuan. Pastikan tabel pending sudah dibuat di Supabase.");
         return false;
     }
 }
 
-async function deleteBirthday(id, silent = false) {
+async function deleteBirthday(id, isPending = false, silent = false) {
     try {
-        const { error } = await db.from("birthdays").delete().eq("id", id);
+        const table = isPending ? "pending" : "birthdays";
+        const { error } = await db.from(table).delete().eq("id", id);
         if (error) throw error;
         allBirthdays      = allBirthdays.filter(b => b.id !== id);
-        approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
-        pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
+        approvedBirthdays = approvedBirthdays.filter(b => b.id !== id);
+        pendingBirthdays  = pendingBirthdays.filter(b => b.id !== id);
         userStatusUpdates = userStatusUpdates.filter(x => x.id !== id);
         if (!silent) {
             renderCalendar();
@@ -627,16 +658,36 @@ async function deleteBirthday(id, silent = false) {
     }
 }
 
-async function approveBirthday(id) {
+async function approveBirthday(b) {
     try {
-        const { error } = await db.from("birthdays").update({ status: "approved" }).eq("id", id);
+        // 1. Masukkan ke tabel birthdays (yang sudah disetujui / di-acc)
+        const { data, error } = await db.from("birthdays")
+            .insert([{
+                name: b.name,
+                day: b.day,
+                month: b.month,
+                user_id: b.user_id,
+                user_email: b.user_email,
+                status: "approved"
+            }])
+            .select();
         if (error) throw error;
-        const b = allBirthdays.find(x => x.id === id);
-        if (b) b.status = "approved";
-        approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
-        pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
-        const s = userStatusUpdates.find(x => x.id === id);
+
+        // 2. Hapus dari tabel pending (atau birthdays jika legacy)
+        if (b.isPendingTable) {
+            await db.from("pending").delete().eq("id", b.id);
+        } else {
+            await db.from("birthdays").delete().eq("id", b.id);
+        }
+
+        const newApproved = (data && data.length > 0) ? data[0] : { ...b, status: "approved" };
+        allBirthdays.push(newApproved);
+        approvedBirthdays.push(newApproved);
+        pendingBirthdays = pendingBirthdays.filter(x => x.id !== b.id);
+
+        const s = userStatusUpdates.find(x => x.id === b.id);
         if (s) s.status = "approved";
+
         renderCalendar();
         updateNotifBadge();
         updateAdminBadge();
@@ -651,7 +702,7 @@ async function approveBirthday(id) {
 
 async function rejectBirthday(b) {
     try {
-        // 1. Simpan ke tabel reject (jika tabel reject ada)
+        // 1. Simpan ke tabel reject
         try {
             await db.from("reject").insert([{
                 name: b.name,
@@ -664,13 +715,15 @@ async function rejectBirthday(b) {
             console.warn("Reject table insert warning:", e);
         }
 
-        // 2. Hapus dari tabel birthdays
-        const { error } = await db.from("birthdays").delete().eq("id", b.id);
-        if (error) throw error;
+        // 2. Hapus dari tabel pending (atau birthdays jika legacy)
+        if (b.isPendingTable) {
+            await db.from("pending").delete().eq("id", b.id);
+        } else {
+            await db.from("birthdays").delete().eq("id", b.id);
+        }
 
-        allBirthdays      = allBirthdays.filter(x => x.id !== b.id);
-        approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
-        pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
+        pendingBirthdays = pendingBirthdays.filter(x => x.id !== b.id);
+        allBirthdays = allBirthdays.filter(x => x.id !== b.id);
         userStatusUpdates = userStatusUpdates.map(x => x.id === b.id ? { ...x, status: "rejected", isRejectTable: true } : x);
 
         renderCalendar();
@@ -815,13 +868,15 @@ async function updateNotifBadge() {
 
     if (currentUser) {
         try {
-            const [bRes, rRes] = await Promise.all([
+            const [bRes, pRes, rRes] = await Promise.all([
                 db.from("birthdays").select("*").eq("user_id", currentUser.id),
+                db.from("pending").select("*").eq("user_id", currentUser.id),
                 db.from("reject").select("*").eq("user_id", currentUser.id)
             ]);
-            const bData = (bRes && bRes.data) ? bRes.data : [];
+            const bData = (bRes && bRes.data) ? bRes.data.map(x => ({ ...x, status: x.status || "approved" })) : [];
+            const pData = (pRes && pRes.data) ? pRes.data.map(x => ({ ...x, status: "pending", isPendingTable: true })) : [];
             const rData = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
-            userStatusUpdates = [...bData, ...rData].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+            userStatusUpdates = [...bData, ...pData, ...rData].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         } catch (e) {
             console.error("Error updating status updates in badge:", e);
         }
@@ -1027,7 +1082,7 @@ function openDetailModal(day, month, items) {
                         okText: "Hapus",
                         cancelText: "Batalkan",
                         onOk: async () => {
-                            const ok = await deleteBirthday(b.id);
+                            const ok = await deleteBirthday(b.id, b.isPendingTable);
                             if (ok) {
                                 item.remove();
                                 if (detailList.querySelectorAll(".detail-item").length === 0) closeDetailModal();
@@ -1104,7 +1159,7 @@ function openAdminModal() {
                     cancelText: "Batalkan",
                     type: "success",
                     onOk: async () => {
-                        const ok = await approveBirthday(b.id);
+                        const ok = await approveBirthday(b);
                         if (ok) {
                             item.remove();
                             if (adminList.querySelectorAll(".admin-item").length === 0) {
@@ -1169,14 +1224,16 @@ async function openHistoryModal() {
     openModal(historyModal);
 
     try {
-        const [bRes, rRes] = await Promise.all([
+        const [bRes, pRes, rRes] = await Promise.all([
             db.from("birthdays").select("*").eq("user_id", currentUser.id),
+            db.from("pending").select("*").eq("user_id", currentUser.id),
             db.from("reject").select("*").eq("user_id", currentUser.id)
         ]);
 
-        const bItems = (bRes && bRes.data) ? bRes.data : [];
+        const bItems = (bRes && bRes.data) ? bRes.data.map(x => ({ ...x, status: x.status || "approved" })) : [];
+        const pItems = (pRes && pRes.data) ? pRes.data.map(x => ({ ...x, status: "pending", isPendingTable: true })) : [];
         const rItems = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
-        const validItems = [...bItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        const validItems = [...bItems, ...pItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         markStatusAsSeen();
 
         historyList.innerHTML = "";
@@ -1245,26 +1302,34 @@ async function openHistoryModal() {
             }
             bottomRow.appendChild(meta);
 
-            // Manual delete button
+            // Manual delete / cancel button
             const delBtn = document.createElement("button");
             delBtn.className = "history-del-btn";
             const isRejected = b.status === "rejected";
-            delBtn.title = isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun";
+            const isPending = b.status === "pending";
+
+            let delTitle = isRejected ? "Hapus Riwayat Penolakan" : (isPending ? "Batalkan Pengajuan" : "Hapus Ulang Tahun");
+            let delMessage = isRejected
+                ? `Hapus riwayat pengajuan ditolak "${b.name}"?`
+                : (isPending
+                    ? `Batalkan pengajuan ulang tahun "${b.name}"?`
+                    : `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`);
+            let delOkText = isPending ? "Batalkan Pengajuan" : "Hapus";
+
+            delBtn.title = delTitle;
             delBtn.innerHTML = `
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-                Hapus
+                ${isPending ? "Batalkan" : "Hapus"}
             `;
             delBtn.addEventListener("click", () => {
                 showConfirmDialog({
-                    title: isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun",
-                    message: isRejected
-                        ? `Hapus riwayat pengajuan ditolak "${b.name}"?`
-                        : `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`,
-                    okText: "Hapus",
-                    cancelText: "Batalkan",
+                    title: delTitle,
+                    message: delMessage,
+                    okText: delOkText,
+                    cancelText: "Kembali",
                     type: "danger",
                     onOk: async () => {
                         let ok = false;
@@ -1277,8 +1342,10 @@ async function openHistoryModal() {
                                 console.error("Error deleting from reject table:", e);
                                 alert("Gagal menghapus riwayat.");
                             }
+                        } else if (b.isPendingTable) {
+                            ok = await deleteBirthday(b.id, true);
                         } else {
-                            ok = await deleteBirthday(b.id);
+                            ok = await deleteBirthday(b.id, false);
                         }
 
                         if (ok) {
