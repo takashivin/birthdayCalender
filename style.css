@@ -24,14 +24,11 @@
     --notif-bg: #fff8e1;
     --notif-border: #ffe082;
     --notif-text: #e65100;
-    --notif-shadow: 0 2px 12px rgba(255, 152, 0, 0.12);
     --delete-bg: #ff3b30;
     --delete-hover: #d32f2f;
     --approve-bg: #34c759;
     --approve-hover: #28a745;
     --admin-bg: #5856d6;
-    --transition-speed: 0.25s;
-    --transition: var(--transition-speed) ease;
 }
 
 /* ============================================
@@ -60,7 +57,6 @@
     --notif-bg: #3e2723;
     --notif-border: #5d4037;
     --notif-text: #ffcc80;
-    --notif-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
     --delete-bg: #ff453a;
     --delete-hover: #ff6961;
     --approve-bg: #30d158;
@@ -71,13 +67,38 @@
 /* ============================================
    Reset & Base
    ============================================ */
-*,
-*::before,
-*::after {
+*, *::before, *::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent !important;
 }
+
+button, input, select, textarea, a {
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+}
+
+button:focus,
+button:focus-visible,
+.tool-btn:focus,
+.tool-btn:focus-visible,
+.nav-btn:focus,
+.nav-btn:focus-visible,
+.icon-btn:focus,
+.icon-btn:focus-visible,
+.day-cell:focus,
+.day-cell:focus-visible,
+.auth-link-btn:focus,
+.auth-link-btn:focus-visible,
+.submit-btn:focus,
+.submit-btn:focus-visible {
+    outline: none !important;
+    box-shadow: none;
+}
+
+/* Hide reCAPTCHA v3 badge */
+.grecaptcha-badge { visibility: hidden !important; }
 
 body {
     font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -89,17 +110,14 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    transition: background-color var(--transition), color var(--transition);
+    transition: background-color 0.4s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
 /* ============================================
-   Layout Wrapper
+   Layout
    ============================================ */
 .wrapper {
     width: 100%;
@@ -107,12 +125,25 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    transition: filter 0.25s ease;
+}
+
+.wrapper.blur-bg {
+    filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
 }
 
 /* ============================================
-   Notification Banner
+   Notification (Floating Toast / Banner)
    ============================================ */
 .notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 400px;
     background: var(--notif-bg);
     border: 1px solid var(--notif-border);
     border-radius: 16px;
@@ -121,9 +152,12 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    box-shadow: var(--notif-shadow);
-    animation: slideDown 0.4s ease;
-    transition: background-color var(--transition), border-color var(--transition);
+    z-index: 950;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: notifSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .notification-content {
@@ -151,18 +185,17 @@ body {
 
 .close-notif-btn {
     color: var(--notif-text);
-    opacity: 0.6;
+    opacity: 0.5;
     font-size: 1.4rem;
     flex-shrink: 0;
+    transition: opacity 0.2s ease;
 }
 
-.close-notif-btn:hover {
-    opacity: 1;
-}
+.close-notif-btn:hover { opacity: 1; }
 
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-12px); }
-    to   { opacity: 1; transform: translateY(0); }
+@keyframes notifSlideDown {
+    from { opacity: 0; transform: translate(-50%, -15px) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 /* ============================================
@@ -173,7 +206,7 @@ body {
     border-radius: 20px;
     padding: 24px;
     box-shadow: var(--shadow-card);
-    transition: background-color var(--transition), box-shadow var(--transition);
+    transition: background-color 0.4s ease, box-shadow 0.3s ease;
 }
 
 /* ============================================
@@ -183,6 +216,7 @@ body {
     padding-bottom: 16px;
     margin-bottom: 16px;
     border-bottom: 1px solid var(--border-light);
+    transition: border-color 0.3s ease;
 }
 
 .guest-actions {
@@ -201,13 +235,15 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
 .auth-link-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
 }
+
+.auth-link-btn:active { opacity: 0.7; }
 
 .auth-link-btn.primary {
     background: var(--accent);
@@ -273,9 +309,7 @@ body {
     transition: opacity 0.15s ease;
 }
 
-.logout-btn:hover {
-    opacity: 0.7;
-}
+.logout-btn:hover { opacity: 0.7; }
 
 /* ============================================
    Calendar Header
@@ -305,19 +339,14 @@ body {
     justify-content: center;
     cursor: pointer;
     color: var(--text-primary);
-    transition: background-color var(--transition), transform 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
-.nav-btn:hover {
-    background: var(--border-light);
-}
-
-.nav-btn:active {
-    transform: scale(0.92);
-}
+.nav-btn:hover { background: var(--border-light); }
+.nav-btn:active { transform: scale(0.9); }
 
 /* ============================================
-   Weekday Labels
+   Weekdays
    ============================================ */
 .weekdays {
     display: grid;
@@ -360,17 +389,9 @@ body {
     user-select: none;
 }
 
-.day-cell.empty {
-    cursor: default;
-}
-
-.day-cell:not(.empty):hover {
-    background: var(--hover);
-}
-
-.day-cell:not(.empty):active {
-    background: var(--border-light);
-}
+.day-cell.empty { cursor: default; }
+.day-cell:not(.empty):hover { background: var(--hover); }
+.day-cell:not(.empty):active { background: var(--border-light); }
 
 .day-number {
     font-size: 0.9rem;
@@ -382,7 +403,7 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color var(--transition), color var(--transition);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .day-number.today {
@@ -406,12 +427,10 @@ body {
     flex-shrink: 0;
 }
 
-.birthday-dot.pending {
-    background: var(--pending-dot-color);
-}
+.birthday-dot.pending { background: var(--pending-dot-color); }
 
 /* ============================================
-   Legend (admin only)
+   Legend
    ============================================ */
 .legend {
     display: flex;
@@ -441,6 +460,7 @@ body {
     margin-top: 12px;
     padding-top: 16px;
     border-top: 1px solid var(--border-light);
+    transition: border-color 0.3s ease;
 }
 
 .tool-btn {
@@ -453,27 +473,104 @@ body {
     justify-content: center;
     cursor: pointer;
     font-size: 1.2rem;
-    transition: background-color var(--transition), transform 0.15s ease;
     background: var(--hover);
     color: var(--text-primary);
     position: relative;
+    padding: 0;
+    transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
-.tool-btn:hover {
-    background: var(--border-light);
+.tool-btn:hover { background: var(--border-light); }
+.tool-btn:active { transform: scale(0.9); }
+
+.tool-btn svg {
+    display: block;
 }
 
-.tool-btn:active {
-    transform: scale(0.9);
+#theme-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#theme-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    line-height: 0;
+}
+
+#theme-icon svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
 }
 
 .tool-btn.add-btn {
     background: var(--accent);
     color: #ffffff;
+    transition: background-color 0.15s ease, transform 0.2s ease;
 }
 
 .tool-btn.add-btn:hover {
     background: var(--accent-hover);
+    transform: rotate(90deg);
+}
+
+.tool-btn.add-btn:active {
+    transform: rotate(90deg) scale(0.9);
+}
+
+/* ============================================
+   Calendar Smooth Month Transitions
+   ============================================ */
+@keyframes calendarSlideNext {
+    from {
+        opacity: 0;
+        transform: translateX(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes calendarSlidePrev {
+    from {
+        opacity: 0;
+        transform: translateX(-18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes calendarFade {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.calendar-animate-next {
+    animation: calendarSlideNext 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.calendar-animate-prev {
+    animation: calendarSlidePrev 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.calendar-animate-fade {
+    animation: calendarFade 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .pending-count {
@@ -495,7 +592,7 @@ body {
 }
 
 /* ============================================
-   Icon Button (generic)
+   Icon Button
    ============================================ */
 .icon-btn {
     background: none;
@@ -511,45 +608,240 @@ body {
     transition: opacity 0.15s ease;
 }
 
+.icon-btn:hover { opacity: 0.6; }
+
 /* ============================================
-   Modal Overlay
+   Modal Overlay — Open & Close Animations
    ============================================ */
 .modal-overlay {
     position: fixed;
     inset: 0;
     background: var(--overlay);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
     padding: 20px;
-    animation: fadeIn 0.2s ease;
+    opacity: 1;
+    transition: opacity 0.2s ease;
 }
 
-@keyframes fadeIn {
+#month-picker-modal {
+    z-index: 1500 !important;
+}
+
+#confirm-modal {
+    z-index: 2000 !important;
+}
+
+/* Open */
+.modal-overlay.opening {
+    animation: overlayIn 0.2s ease forwards;
+}
+
+.modal-overlay.opening .modal-fixed,
+.modal-overlay.opening .modal-confirm {
+    animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Close */
+.modal-overlay.closing {
+    animation: overlayOut 0.2s ease forwards;
+    pointer-events: none;
+}
+
+.modal-overlay.closing .modal-fixed,
+.modal-overlay.closing .modal-confirm {
+    animation: modalOut 0.2s ease forwards;
+}
+
+@keyframes overlayIn {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
 
+@keyframes overlayOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+@keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes modalOut {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(12px) scale(0.96); }
+}
+
 /* ============================================
-   Modal Card — Fixed Size
+   Modal Card — Adaptive Sizing (Reduced chin)
    ============================================ */
 .modal-fixed {
     background: var(--bg-card);
     border-radius: 20px;
     width: 360px;
-    height: 420px;
+    height: auto;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-modal);
-    animation: modalSlideUp 0.3s ease;
-    transition: background-color var(--transition);
+    transition: background-color 0.3s ease;
     overflow: hidden;
 }
 
-@keyframes modalSlideUp {
-    from { opacity: 0; transform: translateY(20px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+/* Persetujuan admin tetap 420px */
+#admin-modal .modal-fixed {
+    height: 420px;
+}
+
+/* Riwayat request ditinggikan agar lebih lega */
+#history-modal .modal-fixed {
+    height: 500px;
+    max-height: 88vh;
+}
+
+#admin-modal .modal-body,
+#history-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* ============================================
+   Confirm Dialog Modal
+   ============================================ */
+.modal-confirm {
+    background: var(--bg-card);
+    border-radius: 20px;
+    width: 330px;
+    max-width: 90vw;
+    padding: 28px 24px 22px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: var(--shadow-modal);
+    transition: background-color 0.3s ease;
+}
+
+.confirm-icon-wrap {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 59, 48, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    color: #ff3b30;
+}
+
+.confirm-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.confirm-text {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin-bottom: 24px;
+}
+
+.confirm-actions {
+    display: flex;
+    width: 100%;
+    gap: 12px;
+}
+
+.confirm-cancel-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    background: transparent;
+    border: 1.5px solid #ff3b30;
+    color: #ff3b30;
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.confirm-cancel-btn:hover {
+    background: rgba(255, 59, 48, 0.08);
+}
+
+.confirm-cancel-btn:active {
+    opacity: 0.8;
+}
+
+.confirm-ok-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    background: #ff3b30;
+    border: 1.5px solid #ff3b30;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.confirm-ok-btn:hover {
+    background: #e0342a;
+    border-color: #e0342a;
+}
+
+.confirm-ok-btn:active {
+    opacity: 0.9;
+}
+
+/* Primary / Accent Variant (Approve / Confirm) */
+.modal-confirm.variant-success .confirm-icon-wrap,
+.modal-confirm.variant-accent .confirm-icon-wrap {
+    background: rgba(0, 122, 255, 0.12);
+    color: var(--accent);
+}
+
+[data-theme="dark"] .modal-confirm.variant-success .confirm-icon-wrap,
+[data-theme="dark"] .modal-confirm.variant-accent .confirm-icon-wrap {
+    background: rgba(10, 132, 255, 0.18);
+}
+
+.modal-confirm.variant-success .confirm-cancel-btn,
+.modal-confirm.variant-accent .confirm-cancel-btn {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.modal-confirm.variant-success .confirm-cancel-btn:hover,
+.modal-confirm.variant-accent .confirm-cancel-btn:hover {
+    background: rgba(0, 122, 255, 0.08);
+}
+
+[data-theme="dark"] .modal-confirm.variant-success .confirm-cancel-btn:hover,
+[data-theme="dark"] .modal-confirm.variant-accent .confirm-cancel-btn:hover {
+    background: rgba(10, 132, 255, 0.12);
+}
+
+.modal-confirm.variant-success .confirm-ok-btn,
+.modal-confirm.variant-accent .confirm-ok-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.modal-confirm.variant-success .confirm-ok-btn:hover,
+.modal-confirm.variant-accent .confirm-ok-btn:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 .modal-header {
@@ -570,15 +862,16 @@ body {
     overflow-y: auto;
     padding: 20px 24px 24px 24px;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
 }
 
-.modal-header .icon-btn {
-    color: var(--text-secondary);
-}
+.modal-body::-webkit-scrollbar { width: 4px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-.modal-header .icon-btn:hover {
-    color: var(--text-primary);
-}
+.modal-header .icon-btn { color: var(--text-secondary); }
+.modal-header .icon-btn:hover { color: var(--text-primary); opacity: 1; }
 
 /* ============================================
    Form
@@ -606,14 +899,14 @@ body {
 .form-group input,
 .form-group select {
     background: var(--bg-input);
-    border: 1px solid var(--border-light);
+    border: 1.5px solid var(--border-light);
     border-radius: 12px;
     padding: 12px 14px;
     font-size: 0.95rem;
     font-family: inherit;
     color: var(--text-primary);
     outline: none;
-    transition: border-color var(--transition), background-color var(--transition), color var(--transition);
+    transition: border-color 0.2s ease, background-color 0.3s ease, color 0.3s ease;
     -webkit-appearance: none;
     appearance: none;
 }
@@ -636,8 +929,126 @@ body {
     border-color: var(--accent);
 }
 
-.form-group input::placeholder {
+.form-group input::placeholder { color: var(--text-tertiary); }
+
+/* Hilangkan tombol spinner up/down pada input number */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.custom-select-btn {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-light);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.3s ease;
+    text-align: left;
+}
+
+.custom-select-btn:hover {
+    border-color: var(--accent);
+}
+
+.custom-select-btn svg {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+/* Month Picker Modal */
+.month-picker-card {
+    width: 350px;
+    max-width: 92vw;
+    border-radius: 22px;
+}
+
+.month-picker-header {
+    padding: 22px 24px 14px 24px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.month-picker-header h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.modal-subtitle {
+    font-size: 0.78rem;
     color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 10px 0 4px 0;
+}
+
+.month-grid-item {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-light);
+    border-radius: 14px;
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.month-grid-item:hover {
+    border-color: var(--accent);
+    background: rgba(0, 122, 255, 0.07);
+    transform: translateY(-2px);
+}
+
+.month-grid-item:active {
+    transform: scale(0.96);
+}
+
+.month-item-num {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+}
+
+.month-item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.month-grid-item.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.month-grid-item.active .month-item-num {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .form-row {
@@ -663,22 +1074,13 @@ body {
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: background-color var(--transition), transform 0.15s ease, opacity var(--transition);
     margin-top: 4px;
+    transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
 }
 
-.submit-btn:hover {
-    background: var(--accent-hover);
-}
-
-.submit-btn:active {
-    transform: scale(0.98);
-}
-
-.submit-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+.submit-btn:hover { background: var(--accent-hover); }
+.submit-btn:active { transform: scale(0.98); }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ============================================
    Auth Error
@@ -689,10 +1091,14 @@ body {
     font-size: 0.84rem;
     margin-top: 14px;
     line-height: 1.4;
+    animation: fadeIn 0.25s ease;
 }
 
-.auth-error.info {
-    color: var(--pending-dot-color);
+.auth-error.info { color: var(--pending-dot-color); }
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
 /* ============================================
@@ -711,8 +1117,8 @@ body {
     padding: 12px 14px;
     background: var(--bg-input);
     border-radius: 12px;
-    transition: background-color var(--transition);
     gap: 10px;
+    transition: background-color 0.2s ease;
 }
 
 .detail-name-wrap {
@@ -740,13 +1146,8 @@ body {
     color: #fff;
 }
 
-.status-badge.approved {
-    background: var(--approve-bg);
-}
-
-.status-badge.pending-status {
-    background: var(--pending-dot-color);
-}
+.status-badge.approved { background: var(--approve-bg); }
+.status-badge.pending-status { background: var(--pending-dot-color); }
 
 .delete-btn {
     background: var(--delete-bg);
@@ -758,17 +1159,12 @@ body {
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: background-color var(--transition), transform 0.15s ease;
     flex-shrink: 0;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
-.delete-btn:hover {
-    background: var(--delete-hover);
-}
-
-.delete-btn:active {
-    transform: scale(0.95);
-}
+.delete-btn:hover { background: var(--delete-hover); }
+.delete-btn:active { transform: scale(0.95); }
 
 /* ============================================
    Add More Button
@@ -784,8 +1180,8 @@ body {
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
-    transition: background-color var(--transition), border-color var(--transition);
     margin-top: 4px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .add-more-btn:hover {
@@ -810,7 +1206,7 @@ body {
     background: var(--bg-input);
     border-radius: 12px;
     gap: 12px;
-    transition: background-color var(--transition);
+    transition: background-color 0.2s ease;
 }
 
 .admin-item-info {
@@ -828,20 +1224,9 @@ body {
     flex-wrap: wrap;
 }
 
-.admin-item-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.admin-item-date {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-}
-
-.admin-item-email {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-}
+.admin-item-name { font-weight: 600; font-size: 0.95rem; }
+.admin-item-date { font-size: 0.82rem; color: var(--text-secondary); }
+.admin-item-email { font-size: 0.75rem; color: var(--text-tertiary); }
 
 .admin-item-actions {
     display: flex;
@@ -860,29 +1245,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color var(--transition), transform 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
-.approve-btn {
-    background: var(--approve-bg);
-}
-
-.approve-btn:hover {
-    background: var(--approve-hover);
-}
-
-.reject-btn {
-    background: var(--delete-bg);
-}
-
-.reject-btn:hover {
-    background: var(--delete-hover);
-}
-
-.approve-btn:active,
-.reject-btn:active {
-    transform: scale(0.9);
-}
+.approve-btn { background: var(--approve-bg); }
+.approve-btn:hover { background: var(--approve-hover); }
+.reject-btn { background: var(--delete-bg); }
+.reject-btn:hover { background: var(--delete-hover); }
+.approve-btn:active, .reject-btn:active { transform: scale(0.9); }
 
 .admin-empty,
 .detail-empty {
@@ -893,29 +1263,191 @@ body {
 }
 
 /* ============================================
+   Member Request History Cards
+   ============================================ */
+.history-header {
+    padding: 24px 24px 18px 24px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+}
+
+.history-header h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Loading State */
+.history-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 16px;
+    color: var(--text-tertiary);
+    font-size: 0.88rem;
+}
+
+.history-spinner {
+    width: 28px;
+    height: 28px;
+    border: 2.5px solid var(--border-light);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: historySpin 0.65s linear infinite;
+}
+
+@keyframes historySpin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes historyCardFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.history-card {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-light);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s ease, transform 0.15s ease;
+    animation: historyCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.history-card:hover {
+    border-color: var(--border);
+}
+
+.history-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.history-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+/* Modern Status Pill Badge */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+.status-pill.approved {
+    background: rgba(52, 199, 89, 0.12);
+    color: #34c759;
+    border: 1px solid rgba(52, 199, 89, 0.25);
+}
+
+.status-pill.pending-status {
+    background: rgba(255, 149, 0, 0.12);
+    color: #ff9500;
+    border: 1px solid rgba(255, 149, 0, 0.25);
+}
+
+.status-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.history-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 8px;
+}
+
+.history-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-bday {
+    display: flex;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.history-time {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+}
+
+.history-del-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid rgba(255, 59, 48, 0.25);
+    color: var(--delete-bg);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.history-del-btn:hover {
+    background: rgba(255, 59, 48, 0.08);
+    border-color: var(--delete-bg);
+}
+
+.history-del-btn:active {
+    transform: scale(0.96);
+}
+
+/* ============================================
    Responsive
    ============================================ */
 @media (max-width: 440px) {
-    body {
-        padding: 12px;
-    }
-
-    .wrapper {
-        max-width: 100%;
-    }
+    body { padding: 12px; }
+    .wrapper { max-width: 100%; }
 
     .calendar-card {
         padding: 20px 16px;
         border-radius: 16px;
     }
 
-    .day-cell {
-        height: 46px;
-    }
-
-    .days-grid {
-        height: 286px;
-    }
+    .day-cell { height: 46px; }
+    .days-grid { height: 286px; }
 
     .day-number {
         width: 30px;
@@ -923,9 +1455,7 @@ body {
         font-size: 0.84rem;
     }
 
-    .month-label {
-        font-size: 1.12rem;
-    }
+    .month-label { font-size: 1.12rem; }
 
     .notification {
         border-radius: 14px;
@@ -935,11 +1465,19 @@ body {
     .modal-fixed {
         width: calc(100vw - 40px);
         max-width: 360px;
-        height: 420px;
+        height: auto;
+        max-height: 85vh;
         border-radius: 16px;
     }
 
-    .user-email {
-        max-width: 130px;
+    #admin-modal .modal-fixed {
+        height: 420px;
     }
+
+    #history-modal .modal-fixed {
+        height: 500px;
+        max-height: 88vh;
+    }
+
+    .user-email { max-width: 130px; }
 }

@@ -98,6 +98,22 @@ const ICON = {
 };
 
 /* ============================================
+   RECAPTCHA v3 HELPER
+   ============================================ */
+async function getRecaptchaToken(action) {
+    if (typeof grecaptcha === "undefined" || !RECAPTCHA_SITE_KEY || RECAPTCHA_SITE_KEY.startsWith("your_")) {
+        return null; // reCAPTCHA not configured, skip
+    }
+    try {
+        await new Promise(resolve => grecaptcha.ready(resolve));
+        return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+    } catch (err) {
+        console.error("reCAPTCHA error:", err);
+        return null;
+    }
+}
+
+/* ============================================
    CONSTANTS
    ============================================ */
 const MONTH_NAMES = [
@@ -152,6 +168,15 @@ const adminBadge      = document.getElementById("admin-badge");
 const adminBtn        = document.getElementById("admin-btn");
 const addBtn          = document.getElementById("add-btn");
 const pendingCountEl  = document.getElementById("pending-count");
+const historyBtn          = document.getElementById("history-btn");
+const userPendingCountEl  = document.getElementById("user-pending-count");
+const historyModal        = document.getElementById("history-modal");
+const historyList         = document.getElementById("history-list");
+const confirmModal        = document.getElementById("confirm-modal");
+const monthPickerBtn      = document.getElementById("month-picker-btn");
+const monthPickerText     = document.getElementById("month-picker-text");
+const monthPickerModal    = document.getElementById("month-picker-modal");
+const monthGrid           = document.getElementById("month-grid");
 
 /* ============================================
    THEME
@@ -189,6 +214,7 @@ function updateUIForAuth() {
         userActions.classList.remove("hidden");
         userEmailEl.textContent = currentUser.email;
         addBtn.classList.remove("hidden");
+        if (historyBtn) historyBtn.classList.remove("hidden");
 
         if (isAdmin) {
             adminBadge.classList.remove("hidden");
@@ -199,14 +225,119 @@ function updateUIForAuth() {
             adminBtn.classList.add("hidden");
             legendEl.classList.add("hidden");
         }
+        updateUserPendingBadge();
     } else {
         guestActions.classList.remove("hidden");
         userActions.classList.add("hidden");
         addBtn.classList.add("hidden");
+        if (historyBtn) historyBtn.classList.add("hidden");
         adminBtn.classList.add("hidden");
         adminBadge.classList.add("hidden");
         legendEl.classList.add("hidden");
+        if (userPendingCountEl) userPendingCountEl.classList.add("hidden");
     }
+}
+
+/* ============================================
+   MODAL HELPERS (smooth open/close)
+   ============================================ */
+function openModal(overlay) {
+    overlay.classList.remove("hidden", "closing");
+    overlay.classList.add("opening");
+    const wrapper = document.querySelector(".wrapper");
+    if (wrapper) wrapper.classList.add("blur-bg");
+    overlay.addEventListener("animationend", function handler() {
+        overlay.classList.remove("opening");
+        overlay.removeEventListener("animationend", handler);
+    });
+}
+
+function closeModal(overlay, callback) {
+    if (overlay.classList.contains("hidden")) return;
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+    overlay.classList.add("closing");
+    const card = overlay.querySelector(".modal-fixed, .modal-confirm");
+
+    const finish = () => {
+        overlay.classList.remove("closing");
+        overlay.classList.add("hidden");
+        // Check if any other modal is still visible
+        const anyOpen = document.querySelector(".modal-overlay:not(.hidden)");
+        if (!anyOpen) {
+            const wrapper = document.querySelector(".wrapper");
+            if (wrapper) wrapper.classList.remove("blur-bg");
+        }
+        if (callback) callback();
+    };
+
+    if (card) {
+        card.addEventListener("animationend", function handler() {
+            card.removeEventListener("animationend", handler);
+            finish();
+        }, { once: true });
+    } else {
+        finish();
+    }
+}
+
+/* ============================================
+   CUSTOM CONFIRM / WARNING DIALOG
+   ============================================ */
+function showConfirmDialog({ title = "Peringatan", message = "Apakah Anda yakin?", okText = "Keluar", cancelText = "Batalkan", type = "danger", onOk }) {
+    if (!confirmModal) return;
+    document.getElementById("confirm-title").textContent = title;
+    document.getElementById("confirm-text").textContent = message;
+
+    const modalCard = confirmModal.querySelector(".modal-confirm");
+    const iconWrap = confirmModal.querySelector(".confirm-icon-wrap");
+    const okBtn = document.getElementById("confirm-ok-btn");
+    const cancelBtn = document.getElementById("confirm-cancel-btn");
+
+    if (modalCard) {
+        modalCard.classList.remove("variant-success", "variant-danger");
+        modalCard.classList.add(type === "success" ? "variant-success" : "variant-danger");
+    }
+
+    if (iconWrap) {
+        if (type === "success") {
+            iconWrap.innerHTML = `
+                <svg class="confirm-icon" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            `;
+        } else {
+            iconWrap.innerHTML = `
+                <svg class="confirm-icon" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            `;
+        }
+    }
+
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    const cleanup = (cb) => {
+        closeModal(confirmModal, () => {
+            if (cb) cb();
+        });
+    };
+
+    okBtn.onclick = () => {
+        cleanup(async () => {
+            if (onOk) await onOk();
+        });
+    };
+
+    cancelBtn.onclick = () => {
+        cleanup();
+    };
+
+    openModal(confirmModal);
 }
 
 /* ============================================
@@ -220,12 +351,12 @@ function openAuthModal(mode) {
     authPassword.value = "";
     authError.classList.add("hidden");
     authError.classList.remove("info");
-    authModal.classList.remove("hidden");
-    setTimeout(() => authEmail.focus(), 100);
+    openModal(authModal);
+    setTimeout(() => authEmail.focus(), 150);
 }
 
 function closeAuthModal() {
-    authModal.classList.add("hidden");
+    closeModal(authModal);
 }
 
 async function handleAuth(e) {
@@ -240,11 +371,15 @@ async function handleAuth(e) {
     authError.classList.remove("info");
 
     try {
+        // Get reCAPTCHA v3 token
+        const action = authMode === "login" ? "login" : "register";
+        const captchaToken = await getRecaptchaToken(action);
+
         let result;
         if (authMode === "login") {
-            result = await db.auth.signInWithPassword({ email, password });
+            result = await db.auth.signInWithPassword({ email, password, options: { captchaToken } });
         } else {
-            result = await db.auth.signUp({ email, password });
+            result = await db.auth.signUp({ email, password, options: { captchaToken } });
         }
 
         console.log("Auth result:", result);
@@ -276,8 +411,16 @@ function translateAuthError(msg) {
     return msg;
 }
 
-async function handleLogout() {
-    await db.auth.signOut();
+function handleLogout() {
+    showConfirmDialog({
+        title: "Peringatan",
+        message: "Apakah Anda yakin ingin keluar dari akun?",
+        okText: "Keluar",
+        cancelText: "Batalkan",
+        onOk: async () => {
+            await db.auth.signOut();
+        }
+    });
 }
 
 async function loadProfile() {
@@ -311,7 +454,7 @@ function getDaysInMonth(month, year) {
     return new Date(year, month + 1, 0).getDate();
 }
 
-function renderCalendar() {
+function renderCalendar(direction = "fade") {
     daysGrid.innerHTML = "";
     monthLabel.textContent = MONTH_NAMES[currentMonth];
 
@@ -365,6 +508,16 @@ function renderCalendar() {
         cell.addEventListener("click", () => handleDayClick(day, displayMonth));
         daysGrid.appendChild(cell);
     }
+
+    // Smooth transition animation
+    daysGrid.classList.remove("calendar-animate-next", "calendar-animate-prev", "calendar-animate-fade");
+    monthLabel.classList.remove("calendar-animate-next", "calendar-animate-prev", "calendar-animate-fade");
+    void daysGrid.offsetWidth; // Force reflow
+    const animClass = direction === "next"
+        ? "calendar-animate-next"
+        : (direction === "prev" ? "calendar-animate-prev" : "calendar-animate-fade");
+    daysGrid.classList.add(animClass);
+    monthLabel.classList.add(animClass);
 }
 
 function handleDayClick(day, month) {
@@ -387,12 +540,12 @@ function handleDayClick(day, month) {
 function prevMonth() {
     currentMonth--;
     if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderCalendar();
+    renderCalendar("prev");
 }
 function nextMonth() {
     currentMonth++;
     if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderCalendar();
+    renderCalendar("next");
 }
 
 /* ============================================
@@ -412,6 +565,7 @@ async function fetchBirthdays() {
     renderCalendar();
     checkTodayBirthdays();
     updateAdminBadge();
+    updateUserPendingBadge();
 }
 
 async function saveBirthday(name, day, month) {
@@ -427,6 +581,7 @@ async function saveBirthday(name, day, month) {
         }
         renderCalendar();
         updateAdminBadge();
+        updateUserPendingBadge();
         return true;
     } catch (err) {
         console.error("Save error:", err);
@@ -435,20 +590,23 @@ async function saveBirthday(name, day, month) {
     }
 }
 
-async function deleteBirthday(id) {
+async function deleteBirthday(id, silent = false) {
     try {
         const { error } = await db.from("birthdays").delete().eq("id", id);
         if (error) throw error;
         allBirthdays      = allBirthdays.filter(b => b.id !== id);
         approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
         pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
-        renderCalendar();
-        checkTodayBirthdays();
-        updateAdminBadge();
+        if (!silent) {
+            renderCalendar();
+            checkTodayBirthdays();
+            updateAdminBadge();
+            updateUserPendingBadge();
+        }
         return true;
     } catch (err) {
         console.error("Delete error:", err);
-        alert("Gagal menghapus.");
+        if (!silent) alert("Gagal menghapus.");
         return false;
     }
 }
@@ -464,6 +622,7 @@ async function approveBirthday(id) {
         renderCalendar();
         checkTodayBirthdays();
         updateAdminBadge();
+        updateUserPendingBadge();
         return true;
     } catch (err) {
         console.error("Approve error:", err);
@@ -480,6 +639,17 @@ function updateAdminBadge() {
         pendingCountEl.classList.remove("hidden");
     } else {
         pendingCountEl.classList.add("hidden");
+    }
+}
+
+function updateUserPendingBadge() {
+    if (!currentUser || !userPendingCountEl) return;
+    const myPending = pendingBirthdays.filter(b => b.user_id === currentUser.id);
+    if (myPending.length > 0) {
+        userPendingCountEl.textContent = myPending.length;
+        userPendingCountEl.classList.remove("hidden");
+    } else {
+        userPendingCountEl.classList.add("hidden");
     }
 }
 
@@ -511,14 +681,19 @@ function checkTodayBirthdays() {
    ============================================ */
 function openAddModal(preDay, preMonth) {
     if (!currentUser) { openAuthModal("login"); return; }
+    const today = new Date();
+    const selMonth = preMonth !== undefined ? preMonth : (today.getMonth() + 1);
+    const selDay   = preDay !== undefined ? preDay : today.getDate();
+
     inputName.value = "";
-    inputMonth.value = preMonth || (currentMonth + 1);
-    updateDayOptions();
-    if (preDay) inputDay.value = preDay;
-    addModal.classList.remove("hidden");
-    setTimeout(() => inputName.focus(), 100);
+    setSelectedMonth(selMonth);
+    inputDay.value = selDay;
+    updateDayLimits();
+
+    openModal(addModal);
+    setTimeout(() => inputName.focus(), 150);
 }
-function closeAddModal() { addModal.classList.add("hidden"); }
+function closeAddModal() { closeModal(addModal); }
 
 /* ============================================
    DETAIL MODAL
@@ -560,14 +735,20 @@ function openDetailModal(day, month, items) {
                 const delBtn = document.createElement("button");
                 delBtn.className = "delete-btn";
                 delBtn.textContent = "Hapus";
-                delBtn.addEventListener("click", async () => {
-                    if (confirm("Hapus ulang tahun " + b.name + "?")) {
-                        const ok = await deleteBirthday(b.id);
-                        if (ok) {
-                            item.remove();
-                            if (detailList.querySelectorAll(".detail-item").length === 0) closeDetailModal();
+                delBtn.addEventListener("click", () => {
+                    showConfirmDialog({
+                        title: "Hapus Ulang Tahun",
+                        message: `Hapus ulang tahun ${b.name}?`,
+                        okText: "Hapus",
+                        cancelText: "Batalkan",
+                        onOk: async () => {
+                            const ok = await deleteBirthday(b.id);
+                            if (ok) {
+                                item.remove();
+                                if (detailList.querySelectorAll(".detail-item").length === 0) closeDetailModal();
+                            }
                         }
-                    }
+                    });
                 });
                 item.appendChild(delBtn);
             }
@@ -585,9 +766,9 @@ function openDetailModal(day, month, items) {
         detailList.appendChild(addMoreBtn);
     }
 
-    detailModal.classList.remove("hidden");
+    openModal(detailModal);
 }
-function closeDetailModal() { detailModal.classList.add("hidden"); }
+function closeDetailModal() { closeModal(detailModal); }
 
 /* ============================================
    ADMIN PANEL
@@ -630,17 +811,26 @@ function openAdminModal() {
             approveBtn.className = "approve-btn";
             approveBtn.title = "Setujui";
             approveBtn.innerHTML = ICON.check;
-            approveBtn.addEventListener("click", async () => {
-                const ok = await approveBirthday(b.id);
-                if (ok) {
-                    item.remove();
-                    if (adminList.querySelectorAll(".admin-item").length === 0) {
-                        const e = document.createElement("div");
-                        e.className = "admin-empty";
-                        e.textContent = "Tidak ada yang menunggu persetujuan.";
-                        adminList.appendChild(e);
+            approveBtn.addEventListener("click", () => {
+                showConfirmDialog({
+                    title: "Setujui Permintaan",
+                    message: `Anda yakin ingin menambah ulang tahun "${b.name}" ke kalender?`,
+                    okText: "Setujui",
+                    cancelText: "Batalkan",
+                    type: "success",
+                    onOk: async () => {
+                        const ok = await approveBirthday(b.id);
+                        if (ok) {
+                            item.remove();
+                            if (adminList.querySelectorAll(".admin-item").length === 0) {
+                                const e = document.createElement("div");
+                                e.className = "admin-empty";
+                                e.textContent = "Tidak ada yang menunggu persetujuan.";
+                                adminList.appendChild(e);
+                            }
+                        }
                     }
-                }
+                });
             });
             actions.appendChild(approveBtn);
 
@@ -648,19 +838,26 @@ function openAdminModal() {
             rejectBtn.className = "reject-btn";
             rejectBtn.title = "Tolak";
             rejectBtn.innerHTML = ICON.cross;
-            rejectBtn.addEventListener("click", async () => {
-                if (confirm("Tolak ulang tahun " + b.name + "?")) {
-                    const ok = await deleteBirthday(b.id);
-                    if (ok) {
-                        item.remove();
-                        if (adminList.querySelectorAll(".admin-item").length === 0) {
-                            const e = document.createElement("div");
-                            e.className = "admin-empty";
-                            e.textContent = "Tidak ada yang menunggu persetujuan.";
-                            adminList.appendChild(e);
+            rejectBtn.addEventListener("click", () => {
+                showConfirmDialog({
+                    title: "Tolak Permintaan",
+                    message: `Tolak pengajuan ulang tahun "${b.name}"?`,
+                    okText: "Tolak",
+                    cancelText: "Batalkan",
+                    type: "danger",
+                    onOk: async () => {
+                        const ok = await deleteBirthday(b.id);
+                        if (ok) {
+                            item.remove();
+                            if (adminList.querySelectorAll(".admin-item").length === 0) {
+                                const e = document.createElement("div");
+                                e.className = "admin-empty";
+                                e.textContent = "Tidak ada yang menunggu persetujuan.";
+                                adminList.appendChild(e);
+                            }
                         }
                     }
-                }
+                });
             });
             actions.appendChild(rejectBtn);
 
@@ -668,36 +865,198 @@ function openAdminModal() {
             adminList.appendChild(item);
         });
     }
-    adminModal.classList.remove("hidden");
+    openModal(adminModal);
 }
-function closeAdminModal() { adminModal.classList.add("hidden"); }
+function closeAdminModal() { closeModal(adminModal); }
 
 /* ============================================
-   FORM HELPERS
+   MEMBER REQUEST HISTORY
    ============================================ */
-function populateMonthSelect() {
-    inputMonth.innerHTML = "";
-    MONTH_NAMES.forEach((name, i) => {
-        const opt = document.createElement("option");
-        opt.value = i + 1;
-        opt.textContent = name;
-        inputMonth.appendChild(opt);
-    });
-    inputMonth.value = currentMonth + 1;
+async function openHistoryModal() {
+    if (!currentUser) return;
+    if (!historyList) return;
+    historyList.innerHTML = `
+        <div class="history-loading">
+            <div class="history-spinner"></div>
+            <span>Memuat riwayat...</span>
+        </div>
+    `;
+    openModal(historyModal);
+
+    try {
+        const { data, error } = await db
+            .from("birthdays")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const validItems = data || [];
+
+        historyList.innerHTML = "";
+        if (validItems.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "detail-empty";
+            empty.textContent = "Belum ada pengajuan ulang tahun.";
+            historyList.appendChild(empty);
+            updateUserPendingBadge();
+            return;
+        }
+
+        validItems.forEach(b => {
+            const card = document.createElement("div");
+            card.className = "history-card";
+
+            const topRow = document.createElement("div");
+            topRow.className = "history-card-top";
+
+            const nameEl = document.createElement("span");
+            nameEl.className = "history-name";
+            nameEl.textContent = b.name;
+            topRow.appendChild(nameEl);
+
+            const pill = document.createElement("span");
+            pill.className = `status-pill ${b.status === "approved" ? "approved" : "pending-status"}`;
+            pill.innerHTML = `<span class="status-pill-dot"></span>${b.status === "approved" ? "Disetujui" : "Menunggu"}`;
+            topRow.appendChild(pill);
+            card.appendChild(topRow);
+
+            const bottomRow = document.createElement("div");
+            bottomRow.className = "history-card-bottom";
+
+            const meta = document.createElement("div");
+            meta.className = "history-meta";
+
+            const bdayEl = document.createElement("span");
+            bdayEl.className = "history-bday";
+            bdayEl.innerHTML = `
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:5px; flex-shrink:0;">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                ${b.day} ${MONTH_NAMES[b.month - 1]}
+            `;
+            meta.appendChild(bdayEl);
+
+            if (b.created_at) {
+                const timeEl = document.createElement("span");
+                timeEl.className = "history-time";
+                const submittedDate = new Date(b.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+                timeEl.textContent = `Diajukan: ${submittedDate}`;
+                meta.appendChild(timeEl);
+            }
+            bottomRow.appendChild(meta);
+
+            // Manual delete button
+            const delBtn = document.createElement("button");
+            delBtn.className = "history-del-btn";
+            delBtn.title = "Hapus Ulang Tahun";
+            delBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                Hapus
+            `;
+            delBtn.addEventListener("click", () => {
+                showConfirmDialog({
+                    title: "Hapus Ulang Tahun",
+                    message: `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`,
+                    okText: "Hapus",
+                    cancelText: "Batalkan",
+                    onOk: async () => {
+                        const ok = await deleteBirthday(b.id);
+                        if (ok) {
+                            card.remove();
+                            if (historyList.querySelectorAll(".history-card").length === 0) {
+                                const empty = document.createElement("div");
+                                empty.className = "detail-empty";
+                                empty.textContent = "Belum ada pengajuan ulang tahun.";
+                                historyList.appendChild(empty);
+                            }
+                            updateUserPendingBadge();
+                        }
+                    }
+                });
+            });
+            bottomRow.appendChild(delBtn);
+
+            card.appendChild(bottomRow);
+            historyList.appendChild(card);
+        });
+
+        updateUserPendingBadge();
+    } catch (err) {
+        console.error("History fetch error:", err);
+        historyList.innerHTML = '<div class="detail-empty">Gagal memuat pengajuan.</div>';
+    }
 }
 
-function updateDayOptions() {
-    const month = parseInt(inputMonth.value) - 1;
-    const days  = getDaysInMonth(month, currentYear);
-    const prev  = parseInt(inputDay.value) || 1;
-    inputDay.innerHTML = "";
-    for (let i = 1; i <= days; i++) {
-        const opt = document.createElement("option");
-        opt.value = i;
-        opt.textContent = i;
-        inputDay.appendChild(opt);
+function closeHistoryModal() {
+    closeModal(historyModal);
+}
+
+/* ============================================
+   CUSTOM MONTH PICKER & DAY LIMITS
+   ============================================ */
+function getMaxDaysInMonth(month) {
+    return getDaysInMonth(month - 1, 2024); // 2024 leap year allows Feb 29
+}
+
+function updateDayLimits() {
+    const month = parseInt(inputMonth.value) || 1;
+    const maxDays = getMaxDaysInMonth(month);
+    inputDay.max = maxDays;
+    inputDay.min = 1;
+
+    let val = parseInt(inputDay.value);
+    if (val > maxDays) {
+        inputDay.value = maxDays;
+    } else if (val < 1 && inputDay.value !== "") {
+        inputDay.value = 1;
     }
-    inputDay.value = prev <= days ? prev : days;
+}
+
+function setSelectedMonth(monthNum) {
+    inputMonth.value = monthNum;
+    if (monthPickerText) {
+        monthPickerText.textContent = MONTH_NAMES[monthNum - 1];
+    }
+    updateDayLimits();
+}
+
+function openMonthPicker() {
+    renderMonthGrid();
+    openModal(monthPickerModal);
+}
+
+function closeMonthPicker() {
+    closeModal(monthPickerModal);
+}
+
+function renderMonthGrid() {
+    if (!monthGrid) return;
+    monthGrid.innerHTML = "";
+    const currentSelected = parseInt(inputMonth.value) || 1;
+    MONTH_NAMES.forEach((name, index) => {
+        const m = index + 1;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "month-grid-item" + (m === currentSelected ? " active" : "");
+        const numStr = m < 10 ? "0" + m : "" + m;
+        btn.innerHTML = `
+            <span class="month-item-num">${numStr}</span>
+            <span class="month-item-name">${name}</span>
+        `;
+        btn.addEventListener("click", () => {
+            setSelectedMonth(m);
+            closeMonthPicker();
+        });
+        monthGrid.appendChild(btn);
+    });
 }
 
 /* ============================================
@@ -726,6 +1085,34 @@ function setupListeners() {
     document.querySelector(".modal-close-btn").addEventListener("click", closeAddModal);
     addModal.addEventListener("click", e => { if (e.target === addModal) closeAddModal(); });
 
+    // Custom Month Picker Trigger & Modal
+    if (monthPickerBtn) monthPickerBtn.addEventListener("click", openMonthPicker);
+    const monthPickerCloseBtn = document.querySelector(".month-picker-close-btn");
+    if (monthPickerCloseBtn) monthPickerCloseBtn.addEventListener("click", closeMonthPicker);
+    if (monthPickerModal) monthPickerModal.addEventListener("click", e => {
+        if (e.target === monthPickerModal) closeMonthPicker();
+    });
+
+    // Number Day input clamping & bounds
+    inputDay.addEventListener("input", () => {
+        const month = parseInt(inputMonth.value) || 1;
+        const maxDays = getMaxDaysInMonth(month);
+        let val = parseInt(inputDay.value);
+        if (val > maxDays) {
+            inputDay.value = maxDays;
+        }
+    });
+    inputDay.addEventListener("blur", () => {
+        const month = parseInt(inputMonth.value) || 1;
+        const maxDays = getMaxDaysInMonth(month);
+        let val = parseInt(inputDay.value);
+        if (!val || val < 1) {
+            inputDay.value = 1;
+        } else if (val > maxDays) {
+            inputDay.value = maxDays;
+        }
+    });
+
     // Detail
     document.querySelector(".detail-close-btn").addEventListener("click", closeDetailModal);
     detailModal.addEventListener("click", e => { if (e.target === detailModal) closeDetailModal(); });
@@ -735,11 +1122,19 @@ function setupListeners() {
     document.querySelector(".admin-modal-close-btn").addEventListener("click", closeAdminModal);
     adminModal.addEventListener("click", e => { if (e.target === adminModal) closeAdminModal(); });
 
+    // History (Member Request History)
+    if (historyBtn) historyBtn.addEventListener("click", openHistoryModal);
+    const historyCloseBtn = document.querySelector(".history-close-btn");
+    if (historyCloseBtn) historyCloseBtn.addEventListener("click", closeHistoryModal);
+    if (historyModal) historyModal.addEventListener("click", e => { if (e.target === historyModal) closeHistoryModal(); });
+
+    // Confirm modal outside click
+    if (confirmModal) confirmModal.addEventListener("click", e => {
+        if (e.target === confirmModal) document.getElementById("confirm-cancel-btn").click();
+    });
+
     // Notification close
     document.getElementById("close-notif").addEventListener("click", () => notification.classList.add("hidden"));
-
-    // Month → Day
-    inputMonth.addEventListener("change", updateDayOptions);
 
     // Birthday form
     birthdayForm.addEventListener("submit", async e => {
@@ -755,17 +1150,33 @@ function setupListeners() {
         btn.disabled = false; btn.textContent = "Simpan";
         if (ok) {
             closeAddModal();
-            alert("Berhasil! Menunggu persetujuan admin.");
+            notificationText.textContent = "Pengajuan berhasil dikirim! Menunggu persetujuan admin.";
+            notification.classList.remove("hidden");
         }
     });
 
-    // Escape
+    // Escape key closes any active popup
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
-            if (!authModal.classList.contains("hidden")) closeAuthModal();
-            if (!addModal.classList.contains("hidden")) closeAddModal();
-            if (!detailModal.classList.contains("hidden")) closeDetailModal();
-            if (!adminModal.classList.contains("hidden")) closeAdminModal();
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+            if (confirmModal && !confirmModal.classList.contains("hidden")) {
+                const cancelBtn = document.getElementById("confirm-cancel-btn");
+                if (cancelBtn) cancelBtn.click();
+            } else if (monthPickerModal && !monthPickerModal.classList.contains("hidden")) {
+                closeMonthPicker();
+            } else if (historyModal && !historyModal.classList.contains("hidden")) {
+                closeHistoryModal();
+            } else if (detailModal && !detailModal.classList.contains("hidden")) {
+                closeDetailModal();
+            } else if (addModal && !addModal.classList.contains("hidden")) {
+                closeAddModal();
+            } else if (adminModal && !adminModal.classList.contains("hidden")) {
+                closeAdminModal();
+            } else if (authModal && !authModal.classList.contains("hidden")) {
+                closeAuthModal();
+            }
         }
     });
 }
@@ -775,8 +1186,8 @@ function setupListeners() {
    ============================================ */
 async function init() {
     initTheme();
-    populateMonthSelect();
-    updateDayOptions();
+    setSelectedMonth(now.getMonth() + 1);
+    updateDayLimits();
     setupListeners();
     renderCalendar();
 

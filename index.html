@@ -11,21 +11,21 @@
 </head>
 <body>
 
-    <main class="wrapper">
-        <!-- Birthday Notification Banner -->
-        <div id="notification" class="notification hidden">
-            <div class="notification-content">
-                <span class="notification-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                    </svg>
-                </span>
-                <span id="notification-text"></span>
-            </div>
-            <button id="close-notif" class="icon-btn close-notif-btn" aria-label="Tutup">&times;</button>
+    <!-- Birthday Notification Banner (Floating outside wrapper so filter:blur doesn't affect fixed positioning) -->
+    <div id="notification" class="notification hidden">
+        <div class="notification-content">
+            <span class="notification-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+            </span>
+            <span id="notification-text"></span>
         </div>
+        <button id="close-notif" class="icon-btn close-notif-btn" aria-label="Tutup">&times;</button>
+    </div>
 
+    <main class="wrapper">
         <!-- Calendar Card -->
         <div class="calendar-card">
             <!-- User Bar -->
@@ -102,6 +102,13 @@
                     </svg>
                     <span id="pending-count" class="pending-count hidden">0</span>
                 </button>
+                <button id="history-btn" class="tool-btn hidden" aria-label="Daftar pengajuan" title="Daftar pengajuan">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span id="user-pending-count" class="pending-count hidden">0</span>
+                </button>
                 <button id="add-btn" class="tool-btn add-btn hidden" aria-label="Tambah ulang tahun" title="Tambah ulang tahun">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -155,17 +162,41 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="input-month">Bulan</label>
-                            <select id="input-month" required></select>
+                            <label>Bulan</label>
+                            <button type="button" id="month-picker-btn" class="custom-select-btn" aria-label="Pilih bulan">
+                                <span id="month-picker-text">Januari</span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            <input type="hidden" id="input-month" value="1">
                         </div>
                         <div class="form-group">
                             <label for="input-day">Tanggal</label>
-                            <select id="input-day" required></select>
+                            <input type="number" id="input-day" min="1" max="31" placeholder="1-31" required autocomplete="off">
                         </div>
                     </div>
                     <button type="submit" class="submit-btn">Simpan</button>
                     <p class="form-hint">Ulang tahun akan muncul setelah disetujui admin.</p>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- MONTH PICKER MODAL             -->
+    <!-- ============================== -->
+    <div id="month-picker-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed month-picker-card">
+            <div class="modal-header month-picker-header">
+                <div>
+                    <h3>Pilih Bulan</h3>
+                    <p class="modal-subtitle">Tentukan bulan kelahiran</p>
+                </div>
+                <button class="icon-btn month-picker-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="month-grid" class="month-grid"></div>
             </div>
         </div>
     </div>
@@ -200,8 +231,56 @@
         </div>
     </div>
 
+    <!-- ============================== -->
+    <!-- MEMBER REQUEST HISTORY MODAL   -->
+    <!-- ============================== -->
+    <div id="history-modal" class="modal-overlay hidden">
+        <div class="modal modal-fixed history-card-modal">
+            <div class="modal-header history-header">
+                <div>
+                    <h3>Daftar Pengajuan</h3>
+                    <p class="modal-subtitle">Status ulang tahun yang Anda ajukan</p>
+                </div>
+                <button class="icon-btn history-close-btn" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body" id="history-body">
+                <div id="history-list" class="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- CONFIRM DIALOG MODAL           -->
+    <!-- ============================== -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal modal-confirm">
+            <div class="confirm-icon-wrap">
+                <svg class="confirm-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </div>
+            <h3 id="confirm-title" class="confirm-title">Peringatan</h3>
+            <p id="confirm-text" class="confirm-text">Apakah Anda yakin?</p>
+            <div class="confirm-actions">
+                <button id="confirm-cancel-btn" type="button" class="confirm-cancel-btn">Batalkan</button>
+                <button id="confirm-ok-btn" type="button" class="confirm-ok-btn">Keluar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/@supabase/supabase-js"></script>
     <script src="config.js"></script>
+    <script>
+        // Load reCAPTCHA v3 dynamically using site key from config
+        if (typeof RECAPTCHA_SITE_KEY !== "undefined" && RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.startsWith("your_")) {
+            var s = document.createElement("script");
+            s.src = "https://www.google.com/recaptcha/api.js?render=" + RECAPTCHA_SITE_KEY;
+            s.async = true;
+            document.head.appendChild(s);
+        }
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
