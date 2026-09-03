@@ -591,6 +591,7 @@ async function saveBirthday(name, day, month) {
         if (data && data.length > 0) {
             allBirthdays.push(data[0]);
             pendingBirthdays.push(data[0]);
+            userStatusUpdates = [data[0], ...userStatusUpdates.filter(x => x.id !== data[0].id)];
         }
         renderCalendar();
         updateAdminBadge();
@@ -611,6 +612,7 @@ async function deleteBirthday(id, silent = false) {
         allBirthdays      = allBirthdays.filter(b => b.id !== id);
         approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
         pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
+        userStatusUpdates = userStatusUpdates.filter(x => x.id !== id);
         if (!silent) {
             renderCalendar();
             updateNotifBadge();
@@ -633,6 +635,8 @@ async function approveBirthday(id) {
         if (b) b.status = "approved";
         approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
         pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
+        const s = userStatusUpdates.find(x => x.id === id);
+        if (s) s.status = "approved";
         renderCalendar();
         updateNotifBadge();
         updateAdminBadge();
@@ -667,6 +671,7 @@ async function rejectBirthday(b) {
         allBirthdays      = allBirthdays.filter(x => x.id !== b.id);
         approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
         pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
+        userStatusUpdates = userStatusUpdates.map(x => x.id === b.id ? { ...x, status: "rejected", isRejectTable: true } : x);
 
         renderCalendar();
         updateAdminBadge();
