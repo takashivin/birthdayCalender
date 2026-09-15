@@ -18,11 +18,8 @@
             <div class="user-bar">
                 <!-- Guest View (not logged in) -->
                 <div id="guest-actions" class="guest-actions">
-                    <div class="guest-auth-buttons">
-                        <button id="login-btn" class="auth-link-btn">Masuk</button>
-                        <button id="register-btn" class="auth-link-btn primary">Daftar</button>
-                    </div>
-                    <span class="guest-hint">*Jika ingin menambah ulang tahun, silakan masuk atau daftar</span>
+                    <button id="login-btn" class="auth-link-btn">Masuk</button>
+                    <button id="register-btn" class="auth-link-btn primary">Daftar</button>
                 </div>
 
                 <!-- User View (logged in) -->
@@ -240,7 +237,7 @@
                 <button class="icon-btn notif-close-btn" aria-label="Tutup">&times;</button>
             </div>
             <!-- Tabs -->
-            <div class="notif-tabs">
+            <div class="notif-tabs" id="notif-tabs">
                 <button type="button" class="notif-tab-btn active" data-tab="today" id="tab-btn-today">
                     Ulang Tahun Hari Ini
                     <span id="tab-today-badge" class="tab-badge hidden">0</span>

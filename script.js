@@ -182,6 +182,8 @@ const monthGrid           = document.getElementById("month-grid");
 const notifBtn            = document.getElementById("notif-btn");
 const notifBadge          = document.getElementById("notif-badge");
 const notifModal          = document.getElementById("notif-modal");
+const notifTabs           = document.getElementById("notif-tabs");
+const notifSubtitle       = notifModal ? notifModal.querySelector(".modal-subtitle") : null;
 const tabBtnToday         = document.getElementById("tab-btn-today");
 const tabBtnStatus        = document.getElementById("tab-btn-status");
 const tabTodayBadge       = document.getElementById("tab-today-badge");
@@ -239,6 +241,7 @@ function updateUIForAuth() {
             legendEl.classList.add("hidden");
         }
         updateUserPendingBadge();
+
     } else {
         guestActions.classList.remove("hidden");
         userActions.classList.add("hidden");
@@ -468,6 +471,9 @@ function getDaysInMonth(month, year) {
 }
 
 function renderCalendar(direction = "fade") {
+    daysGrid.style.transform = "";
+    daysGrid.style.opacity = "";
+    daysGrid.style.transition = "";
     daysGrid.innerHTML = "";
     monthLabel.textContent = MONTH_NAMES[currentMonth];
 
@@ -534,6 +540,8 @@ function renderCalendar(direction = "fade") {
 }
 
 function handleDayClick(day, month) {
+    if (hasSwiped || isSwiping) return;
+
     // Determine visible birthdays for this day
     const approved = approvedBirthdays.filter(b => b.day === day && b.month === month);
     const pending  = isAdmin ? pendingBirthdays.filter(b => b.day === day && b.month === month) : [];
@@ -562,36 +570,109 @@ function nextMonth() {
 }
 
 /* ============================================
-   BIRTHDAY CRUD & PENDING SEPARATION
+   SWIPE GESTURES (MOBILE / TOUCH / ANDROID)
+   ============================================ */
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+let touchStartTime = 0;
+let isSwiping = false;
+let hasSwiped = false;
+
+function setupSwipeGestures() {
+    if (!daysGrid) return;
+
+    daysGrid.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchEndX = touch.clientX;
+        touchEndY = touch.clientY;
+        touchStartTime = Date.now();
+        isSwiping = false;
+        hasSwiped = false;
+    }, { passive: true });
+
+    daysGrid.addEventListener("touchmove", (e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        touchEndX = touch.clientX;
+        touchEndY = touch.clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // Mendeteksi apakah pergeseran dominan horizontal
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 12) {
+            if (e.cancelable) e.preventDefault();
+            isSwiping = true;
+
+            // Efek elastis interaktif saat menggeser dengan jari
+            const clampedX = Math.max(-65, Math.min(65, deltaX * 0.45));
+            daysGrid.style.transform = `translateX(${clampedX}px)`;
+            daysGrid.style.opacity = `${Math.max(0.6, 1 - Math.abs(clampedX) / 200)}`;
+            daysGrid.style.transition = "none";
+        }
+    }, { passive: false });
+
+    const handleTouchEnd = () => {
+        if (!isSwiping && !hasSwiped) {
+            daysGrid.style.transform = "";
+            daysGrid.style.opacity = "";
+            daysGrid.style.transition = "";
+            return;
+        }
+
+        daysGrid.style.transform = "";
+        daysGrid.style.opacity = "";
+        daysGrid.style.transition = "";
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        const deltaTime = Date.now() - touchStartTime;
+        const velocity = Math.abs(deltaX) / (deltaTime || 1);
+
+        const minDistance = 35; // px
+        const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 1.15;
+        const isQuickFlick = velocity > 0.25 && Math.abs(deltaX) > 20;
+
+        if (isHorizontal && (Math.abs(deltaX) >= minDistance || isQuickFlick)) {
+            hasSwiped = true;
+            if (deltaX < 0) {
+                // Geser ke kiri -> Bulan berikutnya
+                nextMonth();
+            } else {
+                // Geser ke kanan -> Bulan sebelumnya
+                prevMonth();
+            }
+        }
+
+        setTimeout(() => {
+            hasSwiped = false;
+            isSwiping = false;
+        }, 250);
+    };
+
+    daysGrid.addEventListener("touchend", handleTouchEnd, { passive: true });
+    daysGrid.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+}
+
+/* ============================================
+   BIRTHDAY CRUD
    ============================================ */
 async function fetchBirthdays() {
     try {
         const { data, error } = await db.from("birthdays").select("*");
         if (error) throw error;
         allBirthdays      = data || [];
-        approvedBirthdays = allBirthdays.filter(b => b.status === "approved" || !b.status);
+        approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
+        pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
     } catch (err) {
-        console.error("Fetch birthdays error:", err);
-        allBirthdays = []; approvedBirthdays = [];
+        console.error("Fetch error:", err);
+        allBirthdays = []; approvedBirthdays = []; pendingBirthdays = [];
     }
-
-    pendingBirthdays = [];
-    if (currentUser) {
-        try {
-            const { data: pData, error: pErr } = await db.from("pending").select("*");
-            if (!pErr && pData) {
-                pendingBirthdays = pData.map(b => ({ ...b, status: "pending", isPendingTable: true }));
-            }
-        } catch (e) {
-            console.warn("Fetch pending table warning:", e);
-        }
-    }
-    // Gabungkan jika masih ada data pending lama di tabel birthdays
-    const legacyPending = allBirthdays.filter(b => b.status === "pending");
-    if (legacyPending.length > 0) {
-        pendingBirthdays = [...pendingBirthdays, ...legacyPending];
-    }
-
     renderCalendar();
     updateNotifBadge();
     updateAdminBadge();
@@ -601,28 +682,15 @@ async function fetchBirthdays() {
 async function saveBirthday(name, day, month) {
     if (!currentUser) return false;
     try {
-        let newRow = null;
-        // 1. Simpan ke tabel pending (terpisah dari birthdays yang sudah di-acc)
-        const { data, error } = await db.from("pending")
-            .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email }])
+        const { data, error } = await db.from("birthdays")
+            .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email, status: "pending" }])
             .select();
-
-        if (!error && data && data.length > 0) {
-            newRow = { ...data[0], status: "pending", isPendingTable: true };
-        } else {
-            // Fallback ke tabel birthdays jika tabel pending belum dibuat di Supabase
-            const { data: bData, error: bErr } = await db.from("birthdays")
-                .insert([{ name, day, month, user_id: currentUser.id, user_email: currentUser.email, status: "pending" }])
-                .select();
-            if (bErr) throw bErr;
-            if (bData && bData.length > 0) newRow = bData[0];
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allBirthdays.push(data[0]);
+            pendingBirthdays.push(data[0]);
+            userStatusUpdates = [data[0], ...userStatusUpdates.filter(x => x.id !== data[0].id)];
         }
-
-        if (newRow) {
-            pendingBirthdays.push(newRow);
-            userStatusUpdates = [newRow, ...userStatusUpdates.filter(x => x.id !== newRow.id)];
-        }
-
         renderCalendar();
         updateAdminBadge();
         updateUserPendingBadge();
@@ -630,19 +698,18 @@ async function saveBirthday(name, day, month) {
         return true;
     } catch (err) {
         console.error("Save error:", err);
-        alert("Gagal menyimpan pengajuan. Pastikan tabel pending sudah dibuat di Supabase.");
+        alert("Gagal menyimpan. Pastikan tabel & RLS sudah di-setup.");
         return false;
     }
 }
 
-async function deleteBirthday(id, isPending = false, silent = false) {
+async function deleteBirthday(id, silent = false) {
     try {
-        const table = isPending ? "pending" : "birthdays";
-        const { error } = await db.from(table).delete().eq("id", id);
+        const { error } = await db.from("birthdays").delete().eq("id", id);
         if (error) throw error;
         allBirthdays      = allBirthdays.filter(b => b.id !== id);
-        approvedBirthdays = approvedBirthdays.filter(b => b.id !== id);
-        pendingBirthdays  = pendingBirthdays.filter(b => b.id !== id);
+        approvedBirthdays = allBirthdays.filter(b => b.status === "approved");
+        pendingBirthdays  = allBirthdays.filter(b => b.status === "pending");
         userStatusUpdates = userStatusUpdates.filter(x => x.id !== id);
         if (!silent) {
             renderCalendar();
@@ -658,36 +725,16 @@ async function deleteBirthday(id, isPending = false, silent = false) {
     }
 }
 
-async function approveBirthday(b) {
+async function approveBirthday(id) {
     try {
-        // 1. Masukkan ke tabel birthdays (yang sudah disetujui / di-acc)
-        const { data, error } = await db.from("birthdays")
-            .insert([{
-                name: b.name,
-                day: b.day,
-                month: b.month,
-                user_id: b.user_id,
-                user_email: b.user_email,
-                status: "approved"
-            }])
-            .select();
+        const { error } = await db.from("birthdays").update({ status: "approved" }).eq("id", id);
         if (error) throw error;
-
-        // 2. Hapus dari tabel pending (atau birthdays jika legacy)
-        if (b.isPendingTable) {
-            await db.from("pending").delete().eq("id", b.id);
-        } else {
-            await db.from("birthdays").delete().eq("id", b.id);
-        }
-
-        const newApproved = (data && data.length > 0) ? data[0] : { ...b, status: "approved" };
-        allBirthdays.push(newApproved);
-        approvedBirthdays.push(newApproved);
-        pendingBirthdays = pendingBirthdays.filter(x => x.id !== b.id);
-
-        const s = userStatusUpdates.find(x => x.id === b.id);
+        const b = allBirthdays.find(x => x.id === id);
+        if (b) b.status = "approved";
+        approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
+        pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
+        const s = userStatusUpdates.find(x => x.id === id);
         if (s) s.status = "approved";
-
         renderCalendar();
         updateNotifBadge();
         updateAdminBadge();
@@ -702,7 +749,7 @@ async function approveBirthday(b) {
 
 async function rejectBirthday(b) {
     try {
-        // 1. Simpan ke tabel reject
+        // 1. Simpan ke tabel reject (jika tabel reject ada)
         try {
             await db.from("reject").insert([{
                 name: b.name,
@@ -715,15 +762,13 @@ async function rejectBirthday(b) {
             console.warn("Reject table insert warning:", e);
         }
 
-        // 2. Hapus dari tabel pending (atau birthdays jika legacy)
-        if (b.isPendingTable) {
-            await db.from("pending").delete().eq("id", b.id);
-        } else {
-            await db.from("birthdays").delete().eq("id", b.id);
-        }
+        // 2. Hapus dari tabel birthdays
+        const { error } = await db.from("birthdays").delete().eq("id", b.id);
+        if (error) throw error;
 
-        pendingBirthdays = pendingBirthdays.filter(x => x.id !== b.id);
-        allBirthdays = allBirthdays.filter(x => x.id !== b.id);
+        allBirthdays      = allBirthdays.filter(x => x.id !== b.id);
+        approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
+        pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
         userStatusUpdates = userStatusUpdates.map(x => x.id === b.id ? { ...x, status: "rejected", isRejectTable: true } : x);
 
         renderCalendar();
@@ -891,7 +936,9 @@ function openNotifModal(forcedTab) {
     let targetTab = forcedTab;
     const { unreadTodayCount, unreadStatusCount } = getUnreadNotifCounts();
 
-    if (!targetTab) {
+    if (!currentUser) {
+        targetTab = forcedTab || "today";
+    } else if (!targetTab) {
         if (unreadStatusCount > 0 && unreadTodayCount === 0) {
             targetTab = "status";
         } else if (unreadTodayCount > 0) {
@@ -943,7 +990,20 @@ function renderNotifTodayPane() {
     todayBirthdaysList = getTodayBirthdays();
 
     if (todayBirthdaysList.length === 0) {
-        notifTodayList.innerHTML = '<div class="detail-empty">Tidak ada yang berulang tahun hari ini.</div>';
+        notifTodayList.innerHTML = `
+            <div class="notif-empty-box">
+                <div class="notif-empty-icon">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                </div>
+                <span class="notif-empty-title">Tidak Ada Ulang Tahun Hari Ini</span>
+                <span class="notif-empty-desc">Tidak ada yang merayakan ulang tahun pada tanggal ini.</span>
+            </div>
+        `;
         return;
     }
 
@@ -973,12 +1033,55 @@ function renderNotifStatusPane() {
     notifStatusList.innerHTML = "";
 
     if (!currentUser) {
-        notifStatusList.innerHTML = '<div class="detail-empty">Silakan masuk akun untuk melihat status pengajuan Anda.</div>';
+        const guestCard = document.createElement("div");
+        guestCard.className = "notif-guest-card";
+        guestCard.innerHTML = `
+            <div class="notif-guest-badge">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
+            <h4 class="notif-guest-title">Masuk untuk Melihat Status</h4>
+            <p class="notif-guest-desc">Masuk atau daftar untuk mengajukan ulang tahun dan memantau persetujuan admin secara real-time.</p>
+            <div class="notif-guest-actions">
+                <button type="button" class="notif-guest-btn primary" id="notif-login-cta">Masuk</button>
+                <button type="button" class="notif-guest-btn outline" id="notif-register-cta">Daftar Akun</button>
+            </div>
+        `;
+        const loginCta = guestCard.querySelector("#notif-login-cta");
+        const registerCta = guestCard.querySelector("#notif-register-cta");
+        if (loginCta) {
+            loginCta.addEventListener("click", () => {
+                closeNotifModal();
+                openAuthModal("login");
+            });
+        }
+        if (registerCta) {
+            registerCta.addEventListener("click", () => {
+                closeNotifModal();
+                openAuthModal("register");
+            });
+        }
+        notifStatusList.appendChild(guestCard);
         return;
     }
 
     if (userStatusUpdates.length === 0) {
-        notifStatusList.innerHTML = '<div class="detail-empty">Belum ada riwayat pengajuan.</div>';
+        notifStatusList.innerHTML = `
+            <div class="notif-empty-box">
+                <div class="notif-empty-icon">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <span class="notif-empty-title">Belum Ada Pengajuan</span>
+                <span class="notif-empty-desc">Ulang tahun yang Anda ajukan akan muncul di sini beserta status persetujuannya.</span>
+            </div>
+        `;
         return;
     }
 
@@ -1082,7 +1185,7 @@ function openDetailModal(day, month, items) {
                         okText: "Hapus",
                         cancelText: "Batalkan",
                         onOk: async () => {
-                            const ok = await deleteBirthday(b.id, b.isPendingTable);
+                            const ok = await deleteBirthday(b.id);
                             if (ok) {
                                 item.remove();
                                 if (detailList.querySelectorAll(".detail-item").length === 0) closeDetailModal();
@@ -1159,7 +1262,7 @@ function openAdminModal() {
                     cancelText: "Batalkan",
                     type: "success",
                     onOk: async () => {
-                        const ok = await approveBirthday(b);
+                        const ok = await approveBirthday(b.id);
                         if (ok) {
                             item.remove();
                             if (adminList.querySelectorAll(".admin-item").length === 0) {
@@ -1224,16 +1327,14 @@ async function openHistoryModal() {
     openModal(historyModal);
 
     try {
-        const [bRes, pRes, rRes] = await Promise.all([
+        const [bRes, rRes] = await Promise.all([
             db.from("birthdays").select("*").eq("user_id", currentUser.id),
-            db.from("pending").select("*").eq("user_id", currentUser.id),
             db.from("reject").select("*").eq("user_id", currentUser.id)
         ]);
 
-        const bItems = (bRes && bRes.data) ? bRes.data.map(x => ({ ...x, status: x.status || "approved" })) : [];
-        const pItems = (pRes && pRes.data) ? pRes.data.map(x => ({ ...x, status: "pending", isPendingTable: true })) : [];
+        const bItems = (bRes && bRes.data) ? bRes.data : [];
         const rItems = (rRes && rRes.data) ? rRes.data.map(x => ({ ...x, status: "rejected", isRejectTable: true })) : [];
-        const validItems = [...bItems, ...pItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        const validItems = [...bItems, ...rItems].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         markStatusAsSeen();
 
         historyList.innerHTML = "";
@@ -1302,34 +1403,26 @@ async function openHistoryModal() {
             }
             bottomRow.appendChild(meta);
 
-            // Manual delete / cancel button
+            // Manual delete button
             const delBtn = document.createElement("button");
             delBtn.className = "history-del-btn";
             const isRejected = b.status === "rejected";
-            const isPending = b.status === "pending";
-
-            let delTitle = isRejected ? "Hapus Riwayat Penolakan" : (isPending ? "Batalkan Pengajuan" : "Hapus Ulang Tahun");
-            let delMessage = isRejected
-                ? `Hapus riwayat pengajuan ditolak "${b.name}"?`
-                : (isPending
-                    ? `Batalkan pengajuan ulang tahun "${b.name}"?`
-                    : `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`);
-            let delOkText = isPending ? "Batalkan Pengajuan" : "Hapus";
-
-            delBtn.title = delTitle;
+            delBtn.title = isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun";
             delBtn.innerHTML = `
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-                ${isPending ? "Batalkan" : "Hapus"}
+                Hapus
             `;
             delBtn.addEventListener("click", () => {
                 showConfirmDialog({
-                    title: delTitle,
-                    message: delMessage,
-                    okText: delOkText,
-                    cancelText: "Kembali",
+                    title: isRejected ? "Hapus Riwayat Penolakan" : "Hapus Ulang Tahun",
+                    message: isRejected
+                        ? `Hapus riwayat pengajuan ditolak "${b.name}"?`
+                        : `Hapus data ulang tahun "${b.name}"? Data ini juga akan terhapus dari kalender.`,
+                    okText: "Hapus",
+                    cancelText: "Batalkan",
                     type: "danger",
                     onOk: async () => {
                         let ok = false;
@@ -1342,10 +1435,8 @@ async function openHistoryModal() {
                                 console.error("Error deleting from reject table:", e);
                                 alert("Gagal menghapus riwayat.");
                             }
-                        } else if (b.isPendingTable) {
-                            ok = await deleteBirthday(b.id, true);
                         } else {
-                            ok = await deleteBirthday(b.id, false);
+                            ok = await deleteBirthday(b.id);
                         }
 
                         if (ok) {
@@ -1456,6 +1547,7 @@ function setupListeners() {
     // Navigation
     document.getElementById("prev-btn").addEventListener("click", prevMonth);
     document.getElementById("next-btn").addEventListener("click", nextMonth);
+    setupSwipeGestures();
 
     // Theme
     document.getElementById("theme-btn").addEventListener("click", toggleTheme);

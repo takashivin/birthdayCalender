@@ -241,24 +241,7 @@ body {
 .guest-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.guest-auth-buttons {
-    display: flex;
-    align-items: center;
     gap: 8px;
-    flex-shrink: 0;
-}
-
-.guest-hint {
-    font-size: 0.72rem;
-    color: var(--text-tertiary);
-    line-height: 1.3;
-    opacity: 0.85;
-    flex: 1;
-    min-width: 140px;
 }
 
 .auth-link-btn {
@@ -410,6 +393,10 @@ body {
     gap: 2px;
     height: 322px;
     align-content: start;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    will-change: transform, opacity;
 }
 
 .day-cell {
@@ -1549,16 +1536,20 @@ input[type="number"] {
     flex: 1;
     overflow-y: auto;
     padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
 }
 
 .notif-pane {
     display: none;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
 }
 
 .notif-pane.active {
     display: flex;
+    flex: 1;
     animation: historyCardFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1566,6 +1557,7 @@ input[type="number"] {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
 }
 
 /* Today Birthday Card in Modal */
@@ -1645,6 +1637,127 @@ input[type="number"] {
 .notif-status-time {
     font-size: 0.72rem;
     color: var(--text-tertiary);
+}
+
+/* Notif Empty State */
+.notif-empty-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 36px 16px;
+    gap: 12px;
+}
+
+.notif-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--hover);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+}
+
+.notif-empty-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.notif-empty-desc {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    max-width: 260px;
+    line-height: 1.4;
+}
+
+/* Guest Invite Card in Status Pengajuan */
+.notif-guest-card {
+    background: transparent;
+    border: none;
+    padding: 32px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    animation: historyCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.notif-guest-badge {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(0, 122, 255, 0.12);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.notif-guest-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.notif-guest-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    max-width: 280px;
+}
+
+.notif-guest-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.notif-guest-btn {
+    flex: 1;
+    max-width: 130px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notif-guest-btn.primary {
+    background: var(--accent);
+    color: #ffffff;
+    border: 1px solid var(--accent);
+}
+
+.notif-guest-btn.primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.notif-guest-btn.outline {
+    background: none;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.notif-guest-btn.outline:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.notif-guest-btn:active {
+    transform: scale(0.96);
 }
 
 /* ============================================
