@@ -3,6 +3,16 @@
 -- Jalankan semua query ini di Supabase Dashboard → SQL Editor
 -- ============================================
 
+-- ============================================
+-- CATATAN MIGRASI (Jika database sudah pernah dibuat sebelumnya):
+-- Jalankan baris berikut untuk migrasi ke 1 tabel tunggal:
+--
+-- DROP TABLE IF EXISTS reject;
+-- DROP TABLE IF EXISTS pending;
+-- ALTER TABLE birthdays DROP CONSTRAINT IF EXISTS birthdays_status_check;
+-- ALTER TABLE birthdays ADD CONSTRAINT birthdays_status_check CHECK (status IN ('pending', 'approved', 'rejected'));
+-- ============================================
+
 -- 1. Tabel Profiles (data user)
 CREATE TABLE profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -35,7 +45,7 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 
--- 3. Tabel Birthdays (data ulang tahun)
+-- 3. Tabel Birthdays (Tabel Tunggal: pending, approved, rejected)
 CREATE TABLE birthdays (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name TEXT NOT NULL,
@@ -43,7 +53,7 @@ CREATE TABLE birthdays (
     month SMALLINT NOT NULL CHECK (month >= 1 AND month <= 12),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     user_email TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -53,7 +63,7 @@ ALTER TABLE birthdays ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anon read approved" ON birthdays
     FOR SELECT TO anon USING (status = 'approved');
 
--- User yg login: lihat approved + pending milik sendiri + admin lihat semua
+-- User yg login: lihat approved + pengajuan milik sendiri (pending/approved/rejected) + admin lihat semua
 CREATE POLICY "Auth read" ON birthdays
     FOR SELECT TO authenticated USING (
         status = 'approved'
@@ -72,7 +82,7 @@ CREATE POLICY "Delete own or admin" ON birthdays
         OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
     );
 
--- Admin bisa update (approve/reject)
+-- Admin bisa update (approve / reject)
 CREATE POLICY "Admin update" ON birthdays
     FOR UPDATE TO authenticated USING (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
@@ -81,43 +91,8 @@ CREATE POLICY "Admin update" ON birthdays
     );
 
 
--- 4. Tabel Reject (riwayat pengajuan yang ditolak)
-CREATE TABLE IF NOT EXISTS reject (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name TEXT NOT NULL,
-    day SMALLINT NOT NULL CHECK (day >= 1 AND day <= 31),
-    month SMALLINT NOT NULL CHECK (month >= 1 AND month <= 12),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    user_email TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE reject ENABLE ROW LEVEL SECURITY;
-
--- User bisa lihat riwayat penolakan miliknya sendiri, admin bisa lihat semua
-CREATE POLICY "Auth read reject" ON reject
-    FOR SELECT TO authenticated USING (
-        user_id = auth.uid()
-        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
-    );
-
--- Admin bisa memasukkan data penolakan ke tabel reject
-CREATE POLICY "Admin insert reject" ON reject
-    FOR INSERT TO authenticated WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
-    );
-
--- User bisa menghapus riwayat penolakan miliknya, admin bisa hapus semua
-CREATE POLICY "Delete reject" ON reject
-    FOR DELETE TO authenticated USING (
-        user_id = auth.uid()
-        OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
-    );
-
-
 -- ============================================
--- 5. Jadikan admin (jalankan SETELAH daftar akun)
+-- 4. Jadikan admin (jalankan SETELAH daftar akun)
 -- Ganti email di bawah dengan email admin kamu
 -- ============================================
 -- UPDATE profiles SET is_admin = true WHERE email = 'email-admin-kamu@contoh.com';
-
