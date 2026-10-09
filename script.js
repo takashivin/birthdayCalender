@@ -200,6 +200,205 @@ function escapeHtml(str) {
 }
 
 /* ============================================
+   DISCORD WEBHOOK NOTIFICATIONS (OPTIMIZED)
+   ============================================ */
+const DISCORD_COLORS = {
+    BLUE:   0x007aff, // Kunjungan Web
+    GREEN:  0x34c759, // Login sukses & Approve admin
+    PURPLE: 0x5856d6, // Register baru
+    ORANGE: 0xff9500, // Pengajuan pending
+    RED:    0xff3b30, // Reject admin
+    GOLD:   0xffcc00  // Ulang tahun hari ini
+};
+
+function getFormattedWib() {
+    return new Date().toLocaleString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        dateStyle: "medium",
+        timeStyle: "medium"
+    }) + " WIB";
+}
+
+async function sendDiscordWebhook(targetUrl, { title, description, color, fields = [], footerText }) {
+    if (!targetUrl || typeof targetUrl !== "string") return;
+
+    try {
+        const payload = {
+            username: "Birthday Calendar",
+            avatar_url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+            embeds: [
+                {
+                    title: title,
+                    description: description,
+                    color: color || DISCORD_COLORS.BLUE,
+                    fields: fields,
+                    footer: {
+                        text: footerText || "Birthday Calendar System"
+                    },
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        };
+
+        // Fire and forget via non-blocking fetch
+        fetch(targetUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).catch(err => {
+            console.warn("Discord webhook send error:", err);
+        });
+    } catch (err) {
+        console.warn("Discord webhook exception:", err);
+    }
+}
+
+// 1. Notifikasi Kunjungan Web (Activity Webhook)
+function notifyWebsiteVisit() {
+    const targetUrl = typeof DISCORD_WEBHOOK_URL !== "undefined" ? DISCORD_WEBHOOK_URL : null;
+    if (!targetUrl) return;
+
+    try {
+        if (sessionStorage.getItem("bday_cal_visit_notified")) return;
+        sessionStorage.setItem("bday_cal_visit_notified", "1");
+
+        let device = "Desktop / PC";
+        if (/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)) {
+            device = "Smartphone / Mobile";
+        }
+
+        sendDiscordWebhook(targetUrl, {
+            title: "Pengunjung Membuka Website",
+            description: "Ada pengunjung baru yang membuka website Birthday Calendar.",
+            color: DISCORD_COLORS.BLUE,
+            fields: [
+                { name: "Halaman", value: window.location.origin || window.location.href, inline: false },
+                { name: "Perangkat", value: device, inline: true },
+                { name: "Waktu", value: getFormattedWib(), inline: true }
+            ]
+        });
+    } catch (e) {}
+}
+
+// 2. Notifikasi Auth: Login / Register (Activity Webhook)
+function notifyUserAuth(type, email) {
+    const targetUrl = typeof DISCORD_WEBHOOK_URL !== "undefined" ? DISCORD_WEBHOOK_URL : null;
+    if (!targetUrl) return;
+
+    const isLogin = type === "login";
+    sendDiscordWebhook(targetUrl, {
+        title: isLogin ? "Pengguna Berhasil Masuk (Login)" : "Pengguna Baru Mendaftar (Register)",
+        description: isLogin
+            ? "Ada pengguna yang berhasil login ke website Birthday Calendar."
+            : "Pengguna baru berhasil mendaftar akun.",
+        color: isLogin ? DISCORD_COLORS.GREEN : DISCORD_COLORS.PURPLE,
+        fields: [
+            { name: "Email", value: email, inline: true },
+            { name: "Waktu", value: getFormattedWib(), inline: true }
+        ]
+    });
+}
+
+// 3. Notifikasi Pengajuan Ulang Tahun Baru (Activity Webhook)
+function notifyNewBirthdaySubmission(name, day, month, userEmail) {
+    const targetUrl = typeof DISCORD_WEBHOOK_URL !== "undefined" ? DISCORD_WEBHOOK_URL : null;
+    if (!targetUrl) return;
+
+    sendDiscordWebhook(targetUrl, {
+        title: "Pengajuan Ulang Tahun Baru",
+        description: "Ada data ulang tahun baru yang diajukan oleh pengguna.",
+        color: DISCORD_COLORS.ORANGE,
+        fields: [
+            { name: "Nama", value: name, inline: true },
+            { name: "Tanggal", value: `${day} ${MONTH_NAMES[month - 1]}`, inline: true },
+            { name: "Diajukan Oleh", value: userEmail, inline: false },
+            { name: "Status", value: "Menunggu Persetujuan Admin (Pending)", inline: true },
+            { name: "Waktu", value: getFormattedWib(), inline: true }
+        ]
+    });
+}
+
+// 4. Notifikasi Keputusan Admin: Approve / Reject (Activity Webhook)
+function notifyAdminDecision(action, birthdayItem) {
+    const targetUrl = typeof DISCORD_WEBHOOK_URL !== "undefined" ? DISCORD_WEBHOOK_URL : null;
+    if (!targetUrl || !birthdayItem) return;
+
+    const isApproved = action === "approve";
+    const adminEmail = currentUser ? currentUser.email : "Admin";
+
+    sendDiscordWebhook(targetUrl, {
+        title: isApproved ? "Pengajuan Ulang Tahun Disetujui" : "Pengajuan Ulang Tahun Ditolak",
+        description: isApproved
+            ? `Admin telah menyetujui pengajuan ulang tahun untuk **${escapeHtml(birthdayItem.name)}**.`
+            : `Admin telah menolak pengajuan ulang tahun untuk **${escapeHtml(birthdayItem.name)}**.`,
+        color: isApproved ? DISCORD_COLORS.GREEN : DISCORD_COLORS.RED,
+        fields: [
+            { name: "Nama", value: birthdayItem.name, inline: true },
+            { name: "Tanggal", value: `${birthdayItem.day} ${MONTH_NAMES[birthdayItem.month - 1]}`, inline: true },
+            { name: "Diajukan Oleh", value: birthdayItem.user_email || "-", inline: false },
+            { name: "Diputuskan Oleh", value: adminEmail, inline: true },
+            { name: "Status Baru", value: isApproved ? "Disetujui (Approved)" : "Ditolak (Rejected)", inline: true },
+            { name: "Waktu", value: getFormattedWib(), inline: false }
+        ]
+    });
+}
+
+// 5. Notifikasi Ulang Tahun Hari Ini (Birthday Webhook - Lacak per ID Orang)
+function checkAndNotifyTodayBirthdays(birthdaysList) {
+    const targetUrl = typeof DISCORD_BIRTHDAY_WEBHOOK_URL !== "undefined" ? DISCORD_BIRTHDAY_WEBHOOK_URL : null;
+    if (!targetUrl || !birthdaysList || birthdaysList.length === 0) return;
+
+    try {
+        const today = new Date();
+        const todayDay = today.getDate();
+        const todayMonth = today.getMonth() + 1;
+        const todayKey = `${today.getFullYear()}-${String(todayMonth).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+        const storageKey = `bday_notified_ids_${todayKey}`;
+
+        // Ambil daftar ID orang yang sudah dinotifikasi hari ini
+        let notifiedIds = [];
+        try {
+            notifiedIds = JSON.parse(localStorage.getItem(storageKey) || "[]");
+            if (!Array.isArray(notifiedIds)) notifiedIds = [];
+        } catch (e) {
+            notifiedIds = [];
+        }
+
+        // Cari yang ultah hari ini, approved, dan ID-nya BELUM pernah dinotifikasi hari ini
+        const newCelebrants = birthdaysList.filter(b =>
+            b.status === "approved" &&
+            b.day === todayDay &&
+            b.month === todayMonth &&
+            !notifiedIds.includes(b.id)
+        );
+
+        if (!newCelebrants || newCelebrants.length === 0) return;
+
+        // Simpan ID yang baru dikirim ke daftar ID hari ini
+        const updatedIds = [...notifiedIds, ...newCelebrants.map(c => c.id)];
+        localStorage.setItem(storageKey, JSON.stringify(updatedIds));
+
+        const celebrantsText = newCelebrants.map(c => `• **${escapeHtml(c.name)}**`).join("\n");
+        const isFollowUp = notifiedIds.length > 0;
+
+        sendDiscordWebhook(targetUrl, {
+            title: isFollowUp ? "Ada Tambahan yang Ulang Tahun Hari Ini!" : "Hari Ini Ada yang Ulang Tahun!",
+            description: isFollowUp
+                ? `Ada tambahan teman yang baru disetujui dan berulang tahun hari ini (**${todayDay} ${MONTH_NAMES[todayMonth - 1]}**):\n\n${celebrantsText}\n\nYuk berikan ucapan selamat ulang tahun!`
+                : `Hari ini, tanggal **${todayDay} ${MONTH_NAMES[todayMonth - 1]}**, ada teman yang sedang berulang tahun:\n\n${celebrantsText}\n\nYuk berikan doa dan ucapan selamat ulang tahun!`,
+            color: DISCORD_COLORS.GOLD,
+            fields: [
+                { name: "Jumlah", value: `${newCelebrants.length} orang`, inline: true },
+                { name: "Waktu", value: getFormattedWib(), inline: true }
+            ],
+            footerText: "Birthday Calendar Reminder"
+        });
+    } catch (e) {
+        console.warn("Error checking today birthdays webhook:", e);
+    }
+}
+
+/* ============================================
    STATE
    ============================================ */
 const now = new Date();
@@ -498,6 +697,9 @@ async function handleAuth(e) {
             authError.textContent = "Akun dibuat! Cek email untuk konfirmasi, atau matikan Confirm Email di Supabase Dashboard.";
             authError.classList.remove("hidden");
             authError.classList.add("info");
+            notifyUserAuth("register", email);
+        } else {
+            notifyUserAuth(authMode, email);
         }
     } catch (err) {
         authError.textContent = "Terjadi kesalahan: " + err.message;
@@ -786,6 +988,7 @@ async function fetchBirthdays() {
     if (directoryModal && !directoryModal.classList.contains("hidden")) {
         renderDirectoryList(directorySearchInput ? directorySearchInput.value : "");
     }
+    checkAndNotifyTodayBirthdays(allBirthdays);
 }
 
 async function saveBirthday(name, day, month) {
@@ -800,6 +1003,8 @@ async function saveBirthday(name, day, month) {
             pendingBirthdays.push(data[0]);
             userStatusUpdates = [data[0], ...userStatusUpdates.filter(x => x.id !== data[0].id)];
             userStatusLoaded = true;
+
+            notifyNewBirthdaySubmission(name, day, month, currentUser.email);
         }
         renderCalendar();
         updateAdminBadge();
@@ -840,7 +1045,16 @@ async function approveBirthday(id) {
         const { error } = await db.from("birthdays").update({ status: "approved" }).eq("id", id);
         if (error) throw error;
         const b = allBirthdays.find(x => x.id === id);
-        if (b) b.status = "approved";
+        if (b) {
+            b.status = "approved";
+            notifyAdminDecision("approve", b);
+
+            // Jika yang disetujui bertepatan dengan hari ini, otomatis umumkan ke webhook ultah hari ini
+            const today = new Date();
+            if (b.day === today.getDate() && b.month === (today.getMonth() + 1)) {
+                checkAndNotifyTodayBirthdays(allBirthdays);
+            }
+        }
         approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
         pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
         const s = userStatusUpdates.find(x => x.id === id);
@@ -863,7 +1077,12 @@ async function rejectBirthday(b) {
         if (error) throw error;
 
         const item = allBirthdays.find(x => x.id === b.id);
-        if (item) item.status = "rejected";
+        if (item) {
+            item.status = "rejected";
+            notifyAdminDecision("reject", item);
+        } else {
+            notifyAdminDecision("reject", b);
+        }
         approvedBirthdays = allBirthdays.filter(x => x.status === "approved");
         pendingBirthdays  = allBirthdays.filter(x => x.status === "pending");
 
@@ -2075,6 +2294,7 @@ async function init() {
     updateDayLimits();
     setupListeners();
     renderCalendar();
+    notifyWebsiteVisit();
 
     // Supabase Auth State Observer
     db.auth.onAuthStateChange(async (event, session) => {

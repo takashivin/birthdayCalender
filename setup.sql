@@ -3,13 +3,6 @@
 -- Jalankan semua query ini di Supabase Dashboard → SQL Editor
 -- ============================================
 
--- ============================================
--- OPSIONAL: JIKA INGIN RENAME KEMBALI DARI NAMA LAMA:
--- ============================================
--- ALTER TABLE IF EXISTS profiles_abangsat RENAME TO profiles;
--- ALTER TABLE IF EXISTS birthdays_abangsat RENAME TO birthdays;
--- ============================================
-
 -- 1. Tabel Profiles (data user)
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
