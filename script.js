@@ -26,7 +26,6 @@
        AFTER INSERT ON auth.users
        FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-   -- 3. Birthdays table
    -- 3. Birthdays table (Tabel Tunggal: pending, approved, rejected)
    CREATE TABLE birthdays (
        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
