@@ -1,0 +1,29 @@
+name: Daily Birthday Notification
+
+on:
+  schedule:
+    # Berjalan setiap hari pada jam 17:00 UTC = jam 00:00 WIB (Asia/Jakarta)
+    - cron: '0 17 * * *'
+  # Memungkinkan tombol manual "Run workflow" di GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  check-and-notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Jalankan Pengecekan Ulang Tahun
+        run: node daily-birthday.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          DISCORD_BIRTHDAY_WEBHOOK_URL: ${{ secrets.DISCORD_BIRTHDAY_WEBHOOK_URL }}
+
