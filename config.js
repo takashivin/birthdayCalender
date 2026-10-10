@@ -11,4 +11,4 @@ const RECAPTCHA_SITE_KEY = "6Lf_GKUtAAAAAIOBKdtomEk1nQyc-ZWW6_xVCa3M";
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1558254316291096783/2P8eQn2fULC_WCFq7PNhAxAEXoCX1xHMRyo1UU1k2wPuSWqXnbDNnU4WRxl-_fzd37cI";
 
 // 2. Webhook Pengumuman Ulang Tahun Hari Ini (Kirim 1x sehari)
-const DISCORD_BIRTHDAY_WEBHOOK_URL = "https://discord.com/api/webhooks/1558257030416830595/EYOCdVLcBp_qsniLLHqhSccldXit1L0jenrFkFCT4LBOvo7JvERYMHMKdI-eYVPYczui";
+const DISCORD_BIRTHDAY_WEBHOOK_URL = "https://discord.com/api/webhooks/1558511994993377440/zPIy5s8bTt44slQ2a32XtSM6NSZDQZgN_arjZ_Q49xVY3biilXz3xDwtMH9OsF-N82TE";
